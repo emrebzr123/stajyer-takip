@@ -9,9 +9,15 @@ async function bootstrap() {
   // Global prefix
   app.setGlobalPrefix('api/v1');
 
-  // CORS
+// CORS
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: (origin: any, callback: any) => {
+      if (!origin || origin.endsWith('.vercel.app') || origin.endsWith('.railway.app') || origin === 'http://localhost:3000') {
+        callback(null, true);
+      } else {
+        callback(new Error('CORS error'));
+      }
+    },
     credentials: true,
   });
 
