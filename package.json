@@ -1,0 +1,13 @@
+{
+  "name": "intern-tracker",
+  "private": true,
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter web dev\" \"pnpm --filter api dev\"",
+    "build": "pnpm --filter @intern-tracker/shared build && pnpm --filter web build && pnpm --filter api build",
+    "lint": "pnpm -r lint"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
+}
