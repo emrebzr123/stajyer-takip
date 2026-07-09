@@ -34,8 +34,18 @@ export default function StajyerLayout({ children }: { children: React.ReactNode 
           <Icon name="menu" size={20} />
         </button>
         <StajyerSidebar isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
-        <NotificationBell />
         <main className="main-content">
+          {/* Zil ikonu artık burada, normal sayfa akışında duruyor —
+              önceden ekranın üzerinde YÜZEN (fixed) bir elementti ve
+              mobilde sayfa içeriğiyle (örn. bir drawer'daki butonlarla)
+              görsel olarak çakışıyordu. */}
+          <div style={{
+            position: 'sticky', top: 0, zIndex: 50,
+            display: 'flex', justifyContent: 'flex-end', alignItems: 'center',
+            padding: '10px 24px', background: '#fff', borderBottom: '1px solid var(--border)',
+          }}>
+            <NotificationBell />
+          </div>
           <div className="page-wrapper">{children}</div>
         </main>
       </div>

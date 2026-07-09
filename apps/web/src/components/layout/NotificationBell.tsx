@@ -130,7 +130,12 @@ export default function NotificationBell() {
   const hasRead = items.some(i => i.isRead);
 
   return (
-    <div ref={ref} style={{ position: 'fixed', top: 16, right: 24, zIndex: 1000 }}>
+    // NOT: Önceden position:'fixed' ile ekranın sağ üst köşesinde YÜZEN bir
+    // element olarak duruyordu — bu, altındaki sayfa içeriğiyle (özellikle
+    // mobilde bir modal/drawer içindeki butonlarla) görsel olarak çakışıyordu.
+    // Artık normal akışta, TopBar bileşeni (layout.tsx'lerde) içinde duruyor —
+    // sayfa içeriğinin ÜZERİNE binmez, kendi alanını kaplar.
+    <div ref={ref} style={{ position: 'relative' }}>
       <button
         onClick={openList}
         title="Bildirimler"
