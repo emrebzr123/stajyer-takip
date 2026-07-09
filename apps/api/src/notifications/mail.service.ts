@@ -1,8 +1,26 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const nodemailer = require('nodemailer');
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIL GÖNDERİMİ — BREVO REST API (HTTPS), SMTP DEĞİL
+//
+// Önceden bu servis nodemailer + Gmail SMTP (465/587) kullanıyordu. Railway
+// gibi PaaS sağlayıcıları, spam kötüye kullanımını önlemek için outbound SMTP
+// portlarının TAMAMINI (hem 465 hem 587) engelliyor — bu yüzden her mail
+// denemesi "Connection timeout" ile başarısız oluyordu; kod/şifre sorunu
+// DEĞİLDİ, ağ seviyesinde bir kısıtlamaydı.
+//
+// Çözüm: Brevo'nun (eski adıyla Sendinblue) HTTPS REST API'si üzerinden mail
+// gönderiyoruz. Bu, normal bir API isteği gibi davrandığı için hiçbir PaaS'ın
+// SMTP engellemesinden etkilenmez. Brevo'nun ücretsiz katmanı günde 300 / ayda
+// 9.000 mail'e izin veriyor (kredi kartı istemiyor) — bu uygulamanın hacmi
+// için fazlasıyla yeterli. Özel bir domain'e de gerek yok: "Single Sender"
+// doğrulamasıyla mevcut Gmail/Hotmail adresinizden gönderebilirsiniz.
+//
+// Gerekli ortam değişkenleri:
+//   BREVO_API_KEY      — Brevo Dashboard → SMTP & API → API Keys
+//   BREVO_SENDER_EMAIL — Brevo'da "Single Sender" olarak doğrulanmış adresiniz
+// ─────────────────────────────────────────────────────────────────────────────
 
 @Injectable()
 export class MailService {
@@ -10,29 +28,41 @@ export class MailService {
 
   constructor(private readonly config: ConfigService) {}
 
-  private getTransporter() {
-    // NOT: `service: 'gmail'` kısayolu varsayılan olarak 465 (SSL) portunu
-    // kullanır. Railway gibi PaaS sağlayıcıları çoğu zaman spam kötüye
-    // kullanımını önlemek için outbound SMTP portlarını (özellikle 465'i)
-    // kısıtlar — bu durumda bağlantı "Connection timeout" ile başarısız
-    // olur (şifre/kullanıcı adıyla ilgisi yoktur). 587 (STARTTLS) bazı
-    // ortamlarda hâlâ açık kalabiliyor; connectionTimeout de kısaltılarak
-    // arka planda gönderilen mailin çok uzun süre "asılı" kalması önlenir.
-    return nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587,
-      secure: false,       // 587 → STARTTLS (bağlantı düz başlar, sonra şifrelenir)
-      requireTLS: true,
-      auth: {
-        user: this.config.get('GMAIL_USER'),
-        pass: this.config.get('GMAIL_PASS'),
-      },
-      connectionTimeout: 10000, // 10sn — varsayılan çok daha uzun, hızlı başarısız olsun
-    });
-  }
+  private async sendViaBrevo(params: {
+    to: string;
+    toName?: string;
+    subject: string;
+    text: string;
+    fromName?: string;
+  }): Promise<void> {
+    const apiKey = this.config.get('BREVO_API_KEY');
+    const senderEmail = this.config.get('BREVO_SENDER_EMAIL');
 
-  private getFrom(firmaAdi: string): string {
-    return `"${firmaAdi}" <${this.config.get('GMAIL_USER')}>`;
+    if (!apiKey || !senderEmail) {
+      throw new Error(
+        'BREVO_API_KEY / BREVO_SENDER_EMAIL tanımlı değil — Railway Variables kısmına ekleyin.',
+      );
+    }
+
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': apiKey,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        sender: { name: params.fromName || 'Electromtech', email: senderEmail },
+        to: [{ email: params.to, name: params.toName || params.to }],
+        subject: params.subject,
+        textContent: params.text,
+      }),
+    });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new Error(`Brevo API ${res.status}: ${body.slice(0, 300)}`);
+    }
   }
 
   async sendInternWelcome(params: {
@@ -44,9 +74,10 @@ export class MailService {
     const { firmaAdi, stajyerAdi, stajyerEmail, sifre } = params;
     const firma = firmaAdi || 'Electromtech';
     try {
-      await this.getTransporter().sendMail({
-        from: this.getFrom(firma),
+      await this.sendViaBrevo({
         to: stajyerEmail,
+        toName: stajyerAdi,
+        fromName: firma,
         subject: 'Staj Başvurusu Kabulü ve Sistem Giriş Bilgileri Hk.',
         text: `Sayın ${stajyerAdi},
 
@@ -87,15 +118,11 @@ ARGE Müdürü
     const { firmaAdi, stajyerAdi, stajyerEmail, gorevAdi, gorevAciklamasi, olusturmaTarihi, bitisTarihi } = params;
     const firma = firmaAdi || 'Electromtech';
     try {
-      await this.getTransporter().sendMail({
-        from: this.getFrom(firma),
+      await this.sendViaBrevo({
         to: stajyerEmail,
+        toName: stajyerAdi,
+        fromName: firma,
         subject: 'Yeni Görev Ataması Bilgilendirmesi',
-        // ŞABLON 2: Yeni Görev Tanımlama Bildirim Mesajı — verilen şablonla
-        // birebir. NOT: Önceki metin stajyerin erişimi bile olmayan "İş
-        // Takip Listesi" (yönetici-only sayfa) adını referans veriyordu;
-        // artık sadece stajyerin kendi panelindeki "Haftalık Planım"
-        // sayfasına yönlendiriyor.
         text: `Sayın ${stajyerAdi},
 
 Sistem üzerinden staj süreciniz kapsamında profilinize yeni bir görev tanımlaması gerçekleştirilmiştir.
@@ -119,12 +146,7 @@ ${firma}`,
 
   async sendCustom(to: string, subject: string, text: string): Promise<void> {
     try {
-      await this.getTransporter().sendMail({
-        from: this.getFrom('Electromtech'),
-        to,
-        subject,
-        text,
-      });
+      await this.sendViaBrevo({ to, subject, text, fromName: 'Electromtech' });
       this.logger.log(`✅ Custom mail → ${to}`);
     } catch (err: any) {
       this.logger.error(`❌ Custom mail gönderilemedi → ${to}: ${err.message}`);
@@ -145,9 +167,10 @@ ${firma}`,
       this.config.get('EVALUATION_FORM_URL') ||
       'https://docs.google.com/forms/d/e/1FAIpQLSdtXoicffaPypMhnzPPc_EQw2jb4C8z7WtTrCyvl9ENxIdXiA/viewform';
 
-    await this.getTransporter().sendMail({
-      from: this.getFrom(firma),
+    await this.sendViaBrevo({
       to: stajyerEmail,
+      toName: stajyerAdi,
+      fromName: firma,
       subject: 'Staj Sonu Değerlendirme Anketi Hk.',
       text: `Sayın ${stajyerAdi},
 
