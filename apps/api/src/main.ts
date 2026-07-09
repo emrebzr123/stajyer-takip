@@ -1,3 +1,15 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// POLYFILL: Node.js 18'de globalThis.crypto flag'siz mevcut değil (Node 19+'ta
+// otomatik gelir). @nestjs/schedule (cron görevleri — teslim hatırlatmaları,
+// staj bitiş kontrolü, bildirim temizliği için kullanıyoruz) arka planda
+// crypto.randomUUID() çağırıyor; bu olmadan Railway'in Node 18 kullandığı
+// ortamlarda uygulama açılışta "crypto is not defined" hatasıyla çöküyordu.
+// Bu satırlar, hangi Node sürümü kullanılırsa kullanılsın sorunu kökten çözer.
+import { webcrypto } from 'node:crypto';
+if (!(globalThis as any).crypto) {
+  (globalThis as any).crypto = webcrypto;
+}
+
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
