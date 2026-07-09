@@ -11,12 +11,23 @@ export class MailService {
   constructor(private readonly config: ConfigService) {}
 
   private getTransporter() {
+    // NOT: `service: 'gmail'` kısayolu varsayılan olarak 465 (SSL) portunu
+    // kullanır. Railway gibi PaaS sağlayıcıları çoğu zaman spam kötüye
+    // kullanımını önlemek için outbound SMTP portlarını (özellikle 465'i)
+    // kısıtlar — bu durumda bağlantı "Connection timeout" ile başarısız
+    // olur (şifre/kullanıcı adıyla ilgisi yoktur). 587 (STARTTLS) bazı
+    // ortamlarda hâlâ açık kalabiliyor; connectionTimeout de kısaltılarak
+    // arka planda gönderilen mailin çok uzun süre "asılı" kalması önlenir.
     return nodemailer.createTransport({
-      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false,       // 587 → STARTTLS (bağlantı düz başlar, sonra şifrelenir)
+      requireTLS: true,
       auth: {
         user: this.config.get('GMAIL_USER'),
         pass: this.config.get('GMAIL_PASS'),
       },
+      connectionTimeout: 10000, // 10sn — varsayılan çok daha uzun, hızlı başarısız olsun
     });
   }
 
