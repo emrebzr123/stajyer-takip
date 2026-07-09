@@ -32,14 +32,24 @@ export class InternsController {
   async create(@Body() dto: CreateInternDto & { plainPassword?: string }) {
     const intern = await this.internsService.create(dto);
 
-    // Stajyer oluşturulunca otomatik kabul maili gönder
+    // Stajyer oluşturulunca otomatik kabul maili gönder.
+    // NOT: Önceden bu `await` ile bekleniyordu — yani Gmail SMTP bağlantısı
+    // yavaşsa (özellikle Railway container yeni uyandıysa/soğuksa) TÜM
+    // "Stajyer Ekle" isteği mail gönderilene kadar (bazen 10-30+ saniye)
+    // tamamlanmıyordu. Bu sürede tarayıcı/Railway'in kendi ağ geçidi isteği
+    // zaman aşımına uğratıp kullanıcıya "hata oluştu" gösteriyordu — oysa
+    // stajyer kaydı zaten YUKARIDA (bir satır önce) veritabanına yazılmıştı,
+    // bu yüzden sayfa yenilenince stajyer görünüyordu. Mail gönderimi arka
+    // planda, yanıtı bekletmeden devam eder; kendi içinde try/catch olduğu
+    // için (bkz. mail.service.ts) hata olursa sadece loglanır, uygulamayı
+    // çökertmez.
     if (intern.user?.email) {
-      await this.mailService.sendInternWelcome({
+      this.mailService.sendInternWelcome({
         firmaAdi:      intern.company?.name || 'Electromtech',
         stajyerAdi:   intern.user.name     || '',
         stajyerEmail: intern.user.email,
         sifre:        dto.plainPassword    || '(Kayıt sırasında belirlediğiniz şifre)',
-      });
+      }).catch(() => undefined);
     }
 
     return intern;

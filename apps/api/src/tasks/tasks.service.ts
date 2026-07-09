@@ -44,12 +44,19 @@ export class TasksService {
     const saved = await this.tasksRepo.save(task);
     const full  = await this.findById(saved.id);
 
-    // Görev atama maili otomatik gönder
+    // Görev atama maili otomatik gönder — mail.controller.ts'deki
+    // interns.controller.ts'de yaptığımız aynı düzeltme: `await` KALDIRILDI.
+    // Önceden "Yeni Görev Oluştur" isteği, Gmail SMTP yanıt verene kadar
+    // (bazen 10-30+ saniye, özellikle container yeni uyanmışsa) tamamlanmıyor,
+    // tarayıcı zaman aşımına düşüp "hata oluştu" gösteriyordu — oysa görev
+    // zaten yukarıda veritabanına yazılmıştı. Artık mail arka planda gider,
+    // kendi içindeki try/catch sayesinde (mail.service.ts) hata olursa
+    // sadece loglanır, isteği etkilemez.
     const intern = full.intern as any;
     if (intern?.user?.email) {
       const now = new Date().toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
       const bitis = new Date(full.dueDate).toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
-      await this.mailService.sendTaskAssignment({
+      this.mailService.sendTaskAssignment({
         firmaAdi:        intern.company?.name   || 'Electromtech',
         stajyerAdi:     intern.user.name        || '',
         stajyerEmail:   intern.user.email,
@@ -57,7 +64,7 @@ export class TasksService {
         gorevAciklamasi: full.description       || '',
         olusturmaTarihi: now,
         bitisTarihi:    bitis,
-      });
+      }).catch(() => undefined);
     }
 
     // Stajyere uygulama içi (zil) bildirim — mailden bağımsız, mail hata
