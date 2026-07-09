@@ -58,6 +58,13 @@ export function useTasks() {
     fetchStats();
   };
 
+  // NOT: Önceden `refresh: fetchTasks` sadece tabloyu yeniliyordu — bir
+  // görev düzenlenip kaydedildiğinde (örn. durum değişince) tablo satırı
+  // güncelleniyordu ama üstteki KPI kartları (Toplam/Tamamlandı/Devam
+  // Eden/Gecikmiş) eski değerde donuk kalıyordu. Artık ikisi birlikte
+  // yenilenir.
+  const refresh = () => { fetchTasks(); fetchStats(); };
+
   return {
     data, stats, loading, error,
     page, setPage, total, totalPages,
@@ -66,7 +73,7 @@ export function useTasks() {
     priorityFilter, setPriority,
     deptFilter, setDept,
     internFilter, setIntern,
-    refresh: fetchTasks,
+    refresh,
     remove,
   };
 }

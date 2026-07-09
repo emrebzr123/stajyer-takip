@@ -15,11 +15,14 @@ export class CompaniesService {
   }
 
   async findOrCreate(name: string): Promise<CompanyEntity> {
-    const existing = await this.repo.findOne({
-      where: { name: name.trim() },
-    });
+    const existing = await this.repo.findOne({ where: { name: name.trim() } });
     if (existing) return existing;
     const company = this.repo.create({ name: name.trim() });
     return this.repo.save(company);
+  }
+
+  async remove(id: string): Promise<{ message: string }> {
+    await this.repo.delete(id);
+    return { message: 'Firma silindi.' };
   }
 }

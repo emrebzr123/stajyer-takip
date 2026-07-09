@@ -9,8 +9,11 @@ import Icon from '@/components/ui/Icon';
 import InternModal from '@/components/modals/InternModal';
 import ConfirmModal from '@/components/modals/ConfirmModal';
 import InternDrawer from '@/components/modals/InternDrawer';
+import MessagePreviewModal from '@/components/modals/MessagePreviewModal';
 import { useInterns } from '@/hooks/useInterns';
+import api from '@/lib/api';
 import { formatDate } from '@/lib/utils';
+import { exportToExcel } from '@/lib/export';
 import toast from 'react-hot-toast';
 
 export default function StajyerlerPage() {
@@ -25,6 +28,29 @@ export default function StajyerlerPage() {
   const [modal,   setModal]   = useState<{ open: boolean; intern?: any }>({ open: false });
   const [confirm, setConfirm] = useState<{ open: boolean; id?: string }>({ open: false });
   const [drawer,  setDrawer]  = useState<any | null>(null);
+  const [msgModal, setMsgModal] = useState<{ open: boolean; konu: string; mesaj: string; title: string }>({ open: false, konu: '', mesaj: '', title: '' });
+
+  // Ekranda görünen (filtrelenmiş) stajyerleri Excel dosyası olarak indirir.
+  const handleExport = () => {
+    if (!data.length) { toast('Aktarılacak stajyer yok.', { icon: 'ℹ️' }); return; }
+    exportToExcel(
+      data.map((i: any) => ({
+        'Ad Soyad': i.user?.name || '-',
+        'E-posta': i.user?.email || '-',
+        'Firma': i.company?.name || '-',
+        'Bölüm': i.department?.name || i.academicDepartment || '-',
+        'Üniversite': i.university || '-',
+        'Dönem': i.term || '-',
+        'Durum': i.status,
+        'Çalışma': i.workType || '-',
+        'Mentör': i.mentor?.name || '-',
+        'Başlangıç': i.startDate || '-',
+        'Bitiş': i.endDate || '-',
+      })),
+      'stajyer-listesi',
+      'Stajyerler',
+    );
+  };
   const [deleting, setDeleting] = useState(false);
 
   const STAT_CARDS = stats ? [
@@ -78,7 +104,7 @@ export default function StajyerlerPage() {
           {['Aktif','Mezun','Pasif','Ayrıldı'].map(s => <option key={s} value={s}>{s}</option>)}
         </select>
         <div className="filter-actions">
-          <button className="btn-secondary"><Icon name="download" size={16} /> Dışa Aktar</button>
+          <button className="btn-secondary" onClick={handleExport}><Icon name="download" size={16} /> Dışa Aktar</button>
         </div>
       </div>
 
@@ -150,6 +176,7 @@ export default function StajyerlerPage() {
                         onClick={() => setModal({ open: true, intern })}>
                         <Icon name="edit" size={14} />
                       </button>
+                      
                       <button className="action-btn delete" title="Sil"
                         onClick={() => setConfirm({ open: true, id: intern.id })}>
                         <Icon name="trash" size={14} />
@@ -177,6 +204,7 @@ export default function StajyerlerPage() {
         loading={deleting}
       />
       {drawer && <InternDrawer intern={drawer} onClose={() => setDrawer(null)} />}
+      <MessagePreviewModal open={msgModal.open} konu={msgModal.konu} mesaj={msgModal.mesaj} title={msgModal.title} onClose={() => setMsgModal(p => ({...p, open: false}))} />
     </>
   );
 }

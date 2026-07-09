@@ -1,0 +1,31 @@
+# ─── Ortam değişkenleri (GİZLİ BİLGİLER — asla commit edilmemeli) ───────────
+.env
+.env.local
+.env.*.local
+apps/api/.env
+apps/web/.env
+apps/web/.env.local
+
+# ─── Bağımlılıklar ───────────────────────────────────────────────────────────
+node_modules/
+**/node_modules/
+
+# ─── Derleme çıktıları ───────────────────────────────────────────────────────
+apps/web/.next/
+apps/api/dist/
+*.tsbuildinfo
+
+# ─── Yüklenen dosyalar (kalıcı depolama, git'e girmemeli) ────────────────────
+apps/api/uploads/
+apps/api/apps/api/uploads/
+
+# ─── Log ve önbellek ─────────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+.cache/
+
+# ─── İşletim sistemi / editör ────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

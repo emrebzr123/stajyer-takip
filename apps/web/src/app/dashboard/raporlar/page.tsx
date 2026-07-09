@@ -9,6 +9,8 @@ import BarChart from '@/components/charts/BarChart';
 import LineChart from '@/components/charts/LineChart';
 import GaugeChart from '@/components/charts/GaugeChart';
 import { tasksApi, internsApi } from '@/lib/api';
+import { exportToExcel } from '@/lib/export';
+import toast from 'react-hot-toast';
 
 // ─── Yardımcılar ──────────────────────────────────────────────────────────────
 function getCurrentMonthRange() {
@@ -24,26 +26,11 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-// ─── CSV — noktalı virgül ayraç + BOM (Excel/WPS için) ────────────────────────
-function exportToCSV(data: any[], filename: string) {
-  if (!data.length) return;
-  const headers = Object.keys(data[0]);
-  const rows    = data.map((r) =>
-    headers.map((h) => {
-      const val = String(r[h] ?? '').replace(/"/g, '""');
-      return `"${val}"`;
-    }).join(';'),   // ← noktalı virgül: Excel TR lokalizasyonunda varsayılan ayraç
-  );
-  // \ufeff = UTF-8 BOM → Excel Türkçe karakterleri doğru okur, ayrı sütunlara böler
-  const csv  = '\ufeff' + [headers.join(';'), ...rows].join('\r\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url  = URL.createObjectURL(blob);
-  const a    = Object.assign(document.createElement('a'), { href: url, download: filename });
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
+// NOT: Önceden bu sayfada yerel bir exportToCSV fonksiyonu vardı; İş Takip,
+// Stajyerler ve Haftalık Plan sayfaları ise ortak lib/export.ts üzerinden
+// gerçek .xlsx indiriyordu. Tutarsızlık: aynı uygulamada bazı "Dışa Aktar"
+// butonları Excel, bazıları düz metin (.csv) üretiyordu. Artık hepsi aynı
+// exportToExcel yardımcısını kullanıyor.
 
 // ─── İlerleme dağılımı (statik) ───────────────────────────────────────────────
 const PROGRESS_DIST = [
@@ -96,9 +83,18 @@ export default function RaporlarPage() {
   useEffect(() => { loadData(); }, [loadData]);
 
   // ─── Filtre seçenekleri ────────────────────────────────────────────────────
-  const departments = useMemo(() =>
-    Array.from(new Set(allInterns.map((i) => i.department?.name).filter(Boolean))),
-  [allInterns]);
+  // NOT: Önceden bölüm/stajyer filtreleri İSİM string'i üzerinden
+  // çalışıyordu (deptFilter === 'Yazılım Geliştirme' gibi). İki stajyerin
+  // adı aynıysa (örn. iki "Mehmet") ya da bir bölüm adı sonradan
+  // değiştirilirse filtre yanlış eşleşebiliyordu. Artık ID kullanılıyor;
+  // isim sadece dropdown'da GÖRÜNTÜLEME için tutuluyor.
+  const departments = useMemo(() => {
+    const map = new Map<string, string>();
+    allInterns.forEach((i) => {
+      if (i.department?.id) map.set(i.department.id, i.department.name);
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [allInterns]);
 
   // ─── Ana filtre: tüm kartlar ve grafikler bu veriyi kullanır ───────────────
   const filteredTasks = useMemo(() => {
@@ -107,15 +103,15 @@ export default function RaporlarPage() {
       if (dateStart && t.dueDate && t.dueDate < dateStart) return false;
       if (dateEnd   && t.dueDate && t.dueDate > dateEnd)   return false;
 
-      // Bölüm filtresi — task.department?.name veya intern.department?.name
+      // Bölüm filtresi — task.departmentId veya intern.departmentId (ID bazlı)
       if (deptFilter) {
-        const taskDept   = t.department?.name   || '';
-        const internDept = t.intern?.department?.name || '';
-        if (taskDept !== deptFilter && internDept !== deptFilter) return false;
+        const taskDeptId   = t.departmentId   || t.department?.id   || '';
+        const internDeptId = t.intern?.departmentId || t.intern?.department?.id || '';
+        if (taskDeptId !== deptFilter && internDeptId !== deptFilter) return false;
       }
 
-      // Stajyer filtresi
-      if (internFilter && t.intern?.user?.name !== internFilter) return false;
+      // Stajyer filtresi — internId (ID bazlı)
+      if (internFilter && t.internId !== internFilter && t.intern?.id !== internFilter) return false;
 
       // Görev durumu filtresi
       if (statusFilter && t.status !== statusFilter) return false;
@@ -194,7 +190,12 @@ export default function RaporlarPage() {
     return Object.values(map).map((r: any) => ({
       ...r,
       avgProg: Math.round(r.progSum / r.count),
-      rate: r.completed + r.ongoing > 0 ? Math.round((r.completed / (r.completed + r.ongoing)) * 100) : 0,
+      // NOT: Önceki formül `completed / (completed + ongoing)` idi — bu,
+      // Gecikmiş/Beklemede/Planlandı görevleri paydadan TAMAMEN dışlıyordu.
+      // Sonuç: 3 görevi gecikmiş, 2 görevi tamamlanmış bir stajyer "%100
+      // tamamlama oranı" gösterebiliyordu (2/(2+0)=100%), çünkü gecikmiş
+      // görevler hiç sayılmıyordu. Doğrusu: tamamlanan / TÜM görevler.
+      rate: r.count > 0 ? Math.round((r.completed / r.count) * 100) : 0,
     })).sort((a, b) => b.completed - a.completed);
   }, [filteredTasks]);
 
@@ -206,6 +207,11 @@ export default function RaporlarPage() {
 
   // ─── Dışa Aktar ──────────────────────────────────────────────────────────
   const handleExport = () => {
+    if (!perfRows.length) { toast('Aktarılacak veri yok.', { icon: 'ℹ️' }); return; }
+    // deptFilter/internFilter artık ID tutuyor (bkz. yukarıdaki not) — dışa
+    // aktarılan dosyada ham UUID değil, okunur isim görünsün diye çeviriyoruz.
+    const deptFilterName   = departments.find((d) => d.id === deptFilter)?.name || 'Tümü';
+    const internFilterName = allInterns.find((i: any) => i.id === internFilter)?.user?.name || 'Tümü';
     const rows = perfRows.map((p) => ({
       'Stajyer':              p.name,
       'Tamamlanan':           p.completed,
@@ -214,10 +220,11 @@ export default function RaporlarPage() {
       'Geciken':              p.overdue,
       'Tamamlama Oranı (%)':  p.rate,
       'Tarih Aralığı':        `${fmtDate(dateStart)} - ${fmtDate(dateEnd)}`,
-      'Bölüm Filtresi':       deptFilter   || 'Tümü',
+      'Bölüm Filtresi':       deptFilterName,
+      'Stajyer Filtresi':     internFilterName,
       'Durum Filtresi':       statusFilter || 'Tümü',
     }));
-    exportToCSV(rows, `stajyer-raporu_${dateStart}_${dateEnd}.csv`);
+    exportToExcel(rows, `stajyer-raporu_${dateStart}_${dateEnd}`, 'Performans Raporu');
   };
 
   // ─── Render ──────────────────────────────────────────────────────────────
@@ -291,7 +298,7 @@ export default function RaporlarPage() {
         <select className="filter-select" value={deptFilter}
           onChange={(e) => setDeptFilter(e.target.value)}>
           <option value="">Bölüm: Tümü</option>
-          {departments.map((d: any) => <option key={d} value={d}>{d}</option>)}
+          {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
         </select>
 
         {/* Stajyer */}
@@ -299,7 +306,7 @@ export default function RaporlarPage() {
           onChange={(e) => setInternFilter(e.target.value)}>
           <option value="">Stajyer: Tümü</option>
           {allInterns.map((i: any) => (
-            <option key={i.id} value={i.user?.name}>{i.user?.name}</option>
+            <option key={i.id} value={i.id}>{i.user?.name}</option>
           ))}
         </select>
 
@@ -319,7 +326,7 @@ export default function RaporlarPage() {
               <polyline points="7 10 12 15 17 10"/>
               <line x1="12" y1="15" x2="12" y2="3"/>
             </svg>
-            Dışa Aktar (.csv)
+            Dışa Aktar (.xlsx)
           </button>
         </div>
       </div>
@@ -409,7 +416,7 @@ export default function RaporlarPage() {
         </div>
       </div>
 
-      <InfoBanner text="Tüm grafikler ve kartlar seçilen filtreler değiştiğinde anlık güncellenir. CSV dosyası noktalı virgül ayraçlı ve UTF-8 BOM formatında oluşturulur — Excel ve WPS Office'de doğrudan açılır." />
+      <InfoBanner text="Tüm grafikler ve kartlar seçilen filtreler değiştiğinde anlık güncellenir. Dışa aktarılan dosya gerçek bir Excel (.xlsx) dosyasıdır — Excel ve WPS Office'de doğrudan, kodlama sorunu olmadan açılır." />
     </>
   );
 }

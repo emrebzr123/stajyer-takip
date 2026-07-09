@@ -11,8 +11,18 @@ const NAV_ITEMS = [
   { path: '/dashboard/stajyerler',    label: 'Stajyerler',           icon: 'users' },
   { path: '/dashboard/is-takip',      label: 'İş Takip Listesi',     icon: 'clipboard-list' },
   { path: '/dashboard/haftalik-plan', label: 'Haftalık Görev Planı', icon: 'calendarCheck' },
+  // Yöneticinin KENDİ kişisel görevlerini (stajyerlerle ilgisi olmayan,
+  // proje/iş takibi amaçlı) tuttuğu özel Kanban panosu — her yönetici
+  // sadece kendi bölümlerini görür.
+  { path: '/dashboard/gorevlerim',    label: 'Görevlerim',           icon: 'clipboard' },
   { path: '/dashboard/raporlar',      label: 'Raporlar',             icon: 'bar-chart' },
-  { path: '/dashboard/takvim',        label: 'Takvim',               icon: 'calendar' },
+  // Takvim sekmesi boş bir yer tutucuydu (PlaceholderPage); yerine stajyer
+  // belge yüklemelerinin görüntülendiği "Belgeler" sekmesi kondu.
+  { path: '/dashboard/belgeler',      label: 'Belgeler',             icon: 'file' },
+  // Backend'de attendance modülü olmasına rağmen tek bir stajyeri (drawer
+  // içinden) görmenin ötesinde şirket geneli bir "bugün kim ofiste"
+  // görünümü yoktu — yeni sayfa bunu sağlıyor.
+  { path: '/dashboard/devam',         label: 'Devam Takibi',         icon: 'clock' },
   { path: '/dashboard/duyurular',     label: 'Duyurular',            icon: 'bell' },
   { path: '/dashboard/ayarlar',       label: 'Ayarlar',              icon: 'settings' },
 ];
@@ -43,14 +53,6 @@ function NavIcon({ icon }: { icon: string }) {
   if (icon === 'users') return <UsersIcon />;
   return <Icon name={icon} size={20} />;
 }
-
-const SIDEBAR_PROMOS: Record<string, string> = {
-  '/dashboard':               'Görev planlarını düzenli oluşturun ve stajyerlerin gelişimini kolayca takip edin.',
-  '/dashboard/stajyerler':    'Stajyer bilgilerini düzenli tutun, gelişim süreçlerini kolayca takip edin.',
-  '/dashboard/is-takip':      'Tüm görevleri listeleyin, durumlarını takip edin ve ilerlemeyi yönetin.',
-  '/dashboard/haftalik-plan': 'Görev planlarını düzenli oluşturun ve stajyerlerin gelişimini kolayca takip edin.',
-  '/dashboard/raporlar':      'Detaylı raporlar ile stajyer performansını ve süreçleri analiz edin.',
-};
 
 // Baş harf avatarı için renk üret (isme göre sabit)
 function getAvatarColor(name: string): string {
@@ -83,7 +85,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { user, clearAuth } = useAuthStore();
   const router = useRouter();
 
-  const promo = SIDEBAR_PROMOS[pathname] || SIDEBAR_PROMOS['/dashboard'];
   const displayName = user?.name || 'Kullanıcı';
   const initials    = getInitials(displayName);
   const avatarColor = getAvatarColor(displayName);
@@ -107,19 +108,35 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       <aside className={`sidebar${isOpen ? ' open' : ''}`}>
         {/* Header */}
         <div className="sidebar-header">
-          <Image
-            src="/logo.png"
-            alt="ElectromTech Logo"
-            width={64}
-            height={64}
-            style={{
-              width: 64, height: 64,
-              borderRadius: 10,
-              objectFit: 'cover',
-              flexShrink: 0,
-            }}
-          />
-          <span className="sidebar-title">Stajyer Takip<br />Sistemi</span>
+          <div style={{ flexShrink: 0, background: 'transparent' }}>
+            <Image
+              src="/logo.png"
+              alt="ElectromTech Logo"
+              width={56}
+              height={56}
+              style={{
+                width: 56, height: 56,
+                borderRadius: 8,
+                objectFit: 'cover',
+                mixBlendMode: 'multiply',
+                background: 'transparent',
+              }}
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.3 }}>
+            <span style={{
+              fontWeight: 800, fontSize: 15, letterSpacing: 0.5,
+              color: 'var(--text-primary)',
+            }}>
+              ELECTROMTECH
+            </span>
+            <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>
+              Stajyer Takip
+            </span>
+            <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>
+              Sistemi
+            </span>
+          </div>
         </div>
 
         {/* Nav */}
@@ -139,14 +156,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             );
           })}
         </nav>
-
-        {/* Promo */}
-        <div className="sidebar-promo">
-          <div className="sidebar-promo-icon">
-            <Icon name="clipboard" size={40} />
-          </div>
-          {promo}
-        </div>
 
         {/* User — baş harf avatarı */}
         <div className="sidebar-user" onClick={handleLogout} title="Çıkış Yap">

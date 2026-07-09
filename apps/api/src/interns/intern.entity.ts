@@ -57,6 +57,14 @@ export class InternEntity {
   @Column({ nullable: true })
   phone: string;
 
+  // Staj sonu değerlendirme formunun (Google Anket) stajyere ne zaman
+  // e-posta ile gönderildiği. NULL = henüz gönderilmedi. Hem manuel
+  // ("Değerlendirme Formu Gönder" butonu) hem otomatik (staj bitiminden
+  // sonraki gün cron) gönderimde doldurulur; otomatik gönderimin aynı
+  // stajyere ikinci kez gitmesini bu alan engeller.
+  @Column({ type: 'timestamp', nullable: true })
+  evaluationFormSentAt: Date | null;
+
   @Column({ nullable: true })
   university: string;
 

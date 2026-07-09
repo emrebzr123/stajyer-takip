@@ -1,12 +1,19 @@
 'use client';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
+import NotificationBell from '@/components/layout/NotificationBell';
+import Icon from '@/components/ui/Icon';
 import { useAuthStore } from '@/store/auth.store';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, _hasHydrated } = useAuthStore();
   const router = useRouter();
+  // Mobil hamburger menü — önceden sidebar bileşeni isOpen/onClose kabul
+  // etmesine rağmen hiç kullanılmıyordu; <900px genişlikte sidebar CSS ile
+  // ekran dışına itiliyor ama açmanın HİÇBİR yolu yoktu, uygulama telefonda
+  // navigasyonsuz kalıyordu.
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (_hasHydrated && !isAuthenticated) {
@@ -14,7 +21,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [_hasHydrated, isAuthenticated, router]);
 
-  // Zustand localStorage'ı okurken bekle — redirect loop önlenir
   if (!_hasHydrated) {
     return (
       <div style={{
@@ -29,11 +35,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!isAuthenticated) return null;
 
   return (
-    <div className="app-layout">
-      <Sidebar />
-      <main className="main-content">
-        <div className="page-wrapper">{children}</div>
-      </main>
+    // %90 zoom — masaüstünde tüm dashboard %90 boyutunda görünür; mobilde
+    // (bkz. globals.css @media 900px) bu sıfırlanır.
+    <div className="app-zoom-wrapper" style={{ zoom: '90%' }}>
+      <div className="app-layout">
+        <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(true)} aria-label="Menüyü aç">
+          <Icon name="menu" size={20} />
+        </button>
+        <Sidebar isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
+        <NotificationBell />
+        <main className="main-content">
+          <div className="page-wrapper">{children}</div>
+        </main>
+      </div>
     </div>
   );
 }

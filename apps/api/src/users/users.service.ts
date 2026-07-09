@@ -39,7 +39,12 @@ export class UsersService {
 
   async update(id: string, dto: UpdateUserDto): Promise<UserEntity> {
     const user = await this.findById(id);
-    Object.assign(user, dto);
+    const { newPassword, ...rest } = dto;
+    Object.assign(user, rest);
+    // Yönetici şifre sıfırlaması — mevcut şifre doğrulaması gerektirmez
+    if (newPassword) {
+      (user as any).passwordHash = await bcrypt.hash(newPassword, 12);
+    }
     return this.usersRepo.save(user);
   }
 

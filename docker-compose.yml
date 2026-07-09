@@ -4,9 +4,9 @@ services:
     container_name: intern_tracker_db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: intern_tracker
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-intern_tracker}
     ports:
       - '5432:5432'
     volumes:
@@ -29,14 +29,25 @@ services:
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_USERNAME: postgres
-      DB_PASSWORD: postgres
-      DB_NAME: intern_tracker
-      JWT_SECRET: super-secret-key-change-in-production
-      JWT_EXPIRES_IN: 7d
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_NAME: ${DB_NAME:-intern_tracker}
+      # NOT: Aşağıdaki değerler ARTIK bu dosyada YAZILI DEĞİL — repo kökündeki
+      # (git'e ASLA eklenmeyen) .env dosyasından okunuyor. docker-compose,
+      # aynı klasördeki .env dosyasını otomatik okur, ekstra bir ayar gerekmez.
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       PORT: 3001
       NODE_ENV: production
-      FRONTEND_URL: http://localhost:3000
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      GMAIL_USER: ${GMAIL_USER}
+      GMAIL_PASS: ${GMAIL_PASS}
+      HOTMAIL_USER: ${HOTMAIL_USER}
+      HOTMAIL_PASS: ${HOTMAIL_PASS}
+      EVALUATION_FORM_URL: ${EVALUATION_FORM_URL}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:destek@electromtech.com}
     ports:
       - '3001:3001'
     volumes:
@@ -51,7 +62,7 @@ services:
     depends_on:
       - api
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001/api/v1}
     ports:
       - '3000:3000'
 

@@ -56,6 +56,13 @@ export function useInterns() {
     fetchStats();
   };
 
+  // NOT: Önceden `refresh: fetchInterns` sadece tabloyu yeniliyordu.
+  // Bir stajyer düzenlenip (örn. Aktif → Pasif) kaydedildiğinde tablo
+  // satırı güncelleniyordu ama üstteki KPI kartları (Toplam/Aktif/Pasif
+  // Stajyer) eski değerde donuk kalıyordu, çünkü stats ayrı bir state ve
+  // sadece sayfa ilk açıldığında çekiliyordu. Artık ikisi birlikte yenilenir.
+  const refresh = () => { fetchInterns(); fetchStats(); };
+
   return {
     data, stats, loading, error,
     page, setPage, total, totalPages,
@@ -63,7 +70,7 @@ export function useInterns() {
     statusFilter, setStatus,
     deptFilter, setDept,
     termFilter, setTerm,
-    refresh: fetchInterns,
+    refresh,
     remove,
   };
 }

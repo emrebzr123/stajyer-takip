@@ -1,6 +1,6 @@
 import {
   IsDateString, IsEnum, IsInt, IsNotEmpty, IsOptional,
-  IsString, IsUUID, Max, Min,
+  IsString, IsUUID, Max, Min, IsArray,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { TaskPriority, TaskStatus } from '../../shared-types';
@@ -34,6 +34,10 @@ export class CreateTaskDto {
 
   @IsDateString()
   dueDate: string;
+
+  @IsArray()
+  @IsOptional()
+  subtasks?: { title: string; isCompleted?: boolean; orderIndex?: number }[];
 }
 
 export class UpdateTaskDto {
@@ -74,6 +78,10 @@ export class UpdateTaskDto {
   @IsDateString()
   @IsOptional()
   dueDate?: string;
+
+  @IsArray()
+  @IsOptional()
+  subtasks?: { title: string; isCompleted?: boolean; orderIndex?: number }[];
 }
 
 export class TaskQueryDto {
@@ -104,4 +112,12 @@ export class TaskQueryDto {
   @IsUUID()
   @IsOptional()
   internId?: string;
+
+  // Stajyerin kendi "Görevlerim" ekranında tamamladıktan sonra kendi
+  // listesinden kaldırdığı (hiddenFromInternAt dolu) görevleri hariç
+  // tutmak için kullanılır. Haftalık Plan ve yönetici tarafı bu parametreyi
+  // GÖNDERMEZ — o yüzden gizlenen görevler oralarda görünmeye devam eder.
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  excludeHidden?: boolean;
 }

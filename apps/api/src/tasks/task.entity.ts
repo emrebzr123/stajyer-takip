@@ -1,7 +1,8 @@
 import {
   Entity, PrimaryGeneratedColumn, Column, CreateDateColumn,
-  UpdateDateColumn, ManyToOne, JoinColumn,
+  UpdateDateColumn, ManyToOne, JoinColumn, OneToMany,
 } from 'typeorm';
+import { SubTaskEntity } from '../subtasks/subtask.entity';
 import { TaskPriority, TaskStatus } from '../shared-types';
 import { InternEntity } from '../interns/intern.entity';
 import { DepartmentEntity } from '../departments/department.entity';
@@ -37,6 +38,9 @@ export class TaskEntity {
   @Column({ type: 'enum', enum: TaskStatus, default: TaskStatus.PLANNED })
   status: TaskStatus;
 
+  @OneToMany(() => SubTaskEntity, (s) => s.task, { cascade: true, eager: true })
+  subtasks: SubTaskEntity[];
+
   @Column({ type: 'int', default: 0 })
   progress: number;
 
@@ -45,6 +49,14 @@ export class TaskEntity {
 
   @Column({ type: 'date' })
   dueDate: string;         // Görev bitiş/teslim tarihi
+
+  // Stajyer, tamamladığı bir görevi kendi "Görevlerim" ekranında kalabalık
+  // yapmasın diye "sildiğinde" görev GERÇEKTEN silinmez — sadece bu alan
+  // doldurulur. Haftalık Plan (hem stajyer hem yönetici) ve İş Takip Listesi
+  // bu alana bakmaz, görevi göstermeye devam eder; sadece stajyerin kendi
+  // "Görevlerim" listesinden (excludeHidden=true isteğiyle) filtrelenir.
+  @Column({ type: 'timestamp', nullable: true })
+  hiddenFromInternAt: Date | null;
 
   @CreateDateColumn()
   createdAt: Date;

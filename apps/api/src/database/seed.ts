@@ -41,11 +41,16 @@ async function seed() {
 
   const hash = await bcrypt.hash('password123', 12);
 
+  // NOT: Bu hesap sistem yöneticisi (giriş/login) hesabıdır — 'manager' değil
+  // 'admin' rolü kullanılmalı. Önceden 'manager' olarak işaretlendiği için
+  // Stajyer Ekle formundaki Mentör listesinde (role === 'manager' filtresiyle)
+  // gerçek mentörlerle birlikte görünüyordu. 'admin' yaparak mentör
+  // seçeneklerinden çıkarıyoruz; girişte hâlâ kullanılabilir.
   const admin = await userRepo.save({
     email: 'admin@stajyer.com',
     passwordHash: hash,
     name: 'Emre Bozar',
-    role: 'manager',
+    role: 'admin',
     avatarUrl: 'https://i.pravatar.cc/72?u=zeynep',
   });
 

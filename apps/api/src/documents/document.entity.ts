@@ -31,6 +31,12 @@ export class DocumentEntity {
   @Column({ nullable: true })
   taskId: string;
 
+  // Yönetici bir belgeyi TÜM stajyerlerle paylaştığında true olur. Belirli
+  // stajyerlerle paylaşıldıysa bunun yerine DocumentRecipientEntity satırları
+  // kullanılır (bkz. document-recipient.entity.ts).
+  @Column({ default: false })
+  sharedWithAll: boolean;
+
   @CreateDateColumn()
   createdAt: Date;
 }

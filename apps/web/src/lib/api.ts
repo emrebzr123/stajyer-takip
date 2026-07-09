@@ -43,6 +43,8 @@ export const internsApi = {
   getById: (id: string) => api.get(`/interns/${id}`),
   getStats: () => api.get('/interns/stats'),
   getDeptDistribution: () => api.get('/interns/department-distribution'),
+  sendEvaluationForm: (id: string, force = false) =>
+    api.post(`/interns/${id}/send-evaluation-form`, { force }),
   create: (data: Record<string, any>) => api.post('/interns', data),
   update: (id: string, data: Record<string, any>) => api.patch(`/interns/${id}`, data),
   remove: (id: string) => api.delete(`/interns/${id}`),
@@ -64,6 +66,9 @@ export const tasksApi = {
   create: (data: Record<string, any>) => api.post('/tasks', data),
   update: (id: string, data: Record<string, any>) => api.patch(`/tasks/${id}`, data),
   remove: (id: string) => api.delete(`/tasks/${id}`),
+  // Stajyer kendi görevini siler (sahiplik kontrolü backend'de yapılır)
+  removeMine: (id: string) => api.delete(`/tasks/my/${id}`),
+  getAssignmentMessage: (id: string) => api.get(`/tasks/${id}/assignment-message`),
 };
 
 // ─── Weekly Plans ──────────────────────────────────────────────────────────────
@@ -90,6 +95,26 @@ export const reportsApi = {
   getDepartmentDistribution: () => api.get('/reports/department-distribution'),
 };
 
+// ─── Notifications (uygulama içi zil) ──────────────────────────────────────────
+export const notificationsApi = {
+  getAll: () => api.get('/notifications'),
+  unreadCount: () => api.get('/notifications/unread-count'),
+  markRead: (id: string) => api.patch(`/notifications/${id}/read`),
+  markAllRead: () => api.patch('/notifications/read-all'),
+  remove: (id: string) => api.delete(`/notifications/${id}`),
+  clearRead: () => api.delete('/notifications/clear/read'),
+  // Teslim tarihi hatırlatma kontrolünü elle tetikler (test için)
+  runDueCheck: () => api.post('/notifications/run-due-check'),
+};
+
+// Belge indirme URL'i: API baseURL'i api/v1 prefix'i içerir ama statik
+// /uploads servisi prefix'siz sunulur — prefix'i soyarak kök host'u buluruz.
+export function fileUrl(docUrl: string): string {
+  const base = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1')
+    .replace(/\/api\/v1\/?$/, '');
+  return `${base}${docUrl}`;
+}
+
 // ─── Documents ─────────────────────────────────────────────────────────────────
 export const documentsApi = {
   getAll: (params?: { internId?: string; taskId?: string }) =>
@@ -103,6 +128,16 @@ export const documentsApi = {
     });
   },
   remove: (id: string) => api.delete(`/documents/${id}`),
+  // Yönetici: bir belgeyi seçili stajyerlerle ya da tüm stajyerlerle paylaşır.
+  share: (file: File, recipientInternIds: string[], shareWithAll: boolean) => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('recipientInternIds', JSON.stringify(recipientInternIds));
+    form.append('shareWithAll', String(shareWithAll));
+    return api.post('/documents/share', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 };
 
 // ─── Announcements ─────────────────────────────────────────────────────────────
@@ -116,6 +151,8 @@ export const announcementsApi = {
 export const usersApi = {
   getAll: () => api.get('/users'),
   create: (data: Record<string, any>) => api.post('/users', data),
+  update: (id: string, data: Record<string, any>) => api.patch(`/users/${id}`, data),
+  remove: (id: string) => api.delete(`/users/${id}`),
 };
 
 export default api;
@@ -123,4 +160,46 @@ export default api;
 export const companiesApi = {
   getAll: () => api.get('/companies'),
   findOrCreate: (name: string) => api.post('/companies', { name }),
+  remove: (id: string) => api.delete(`/companies/${id}`),
+};
+
+export const stajyerTasksApi = {
+  getMyTasks: (params?: Record<string,any>) => api.get('/tasks/my', { params }),
+  updateStatus: (id: string, status: string, progress?: number) =>
+    api.patch(`/tasks/my/${id}/status`, { status, progress }),
+  // Tamamlanmış bir görevi stajyerin KENDİ "Görevlerim" ekranından kaldırır.
+  // Gerçek silme DEĞİLDİR — görev Haftalık Plan'da ve yönetici tarafında
+  // görünmeye devam eder (bkz. backend: hideForIntern).
+  hideMine: (id: string) => api.patch(`/tasks/my/${id}/hide`),
+};
+
+export const subtasksApi = {
+  toggle: (id: string, isCompleted: boolean) => api.patch(`/subtasks/${id}/toggle`, { isCompleted }),
+};
+
+export const attendanceApi = {
+  checkIn:      () => api.post('/attendance/check-in'),
+  checkOut:     () => api.post('/attendance/check-out'),
+  todayStatus:  () => api.get('/attendance/today'),
+  history:      (internId?: string) => api.get('/attendance/history', { params: internId ? { internId } : {} }),
+  // Şirket geneli devam görünümü (yönetici) — "bugün kim ofiste, kim değil".
+  overview:     (date?: string) => api.get('/attendance/overview', { params: date ? { date } : {} }),
+};
+
+// "Görevlerim" — yöneticinin kişisel Kanban panosu. Stajyer takip
+// sisteminden bağımsızdır; her yönetici SADECE kendi bölümlerini görür
+// (backend'de sahiplik kontrolü yapılır).
+export const adminTasksApi = {
+  getBoards: () => api.get('/admin-tasks/boards'),
+  createBoard: (name: string, color?: string) => api.post('/admin-tasks/boards', { name, color }),
+  updateBoard: (id: string, data: { name?: string; color?: string; orderIndex?: number }) =>
+    api.patch(`/admin-tasks/boards/${id}`, data),
+  removeBoard: (id: string) => api.delete(`/admin-tasks/boards/${id}`),
+  removeBoards: (ids: string[]) => api.delete('/admin-tasks/boards', { data: { ids } }),
+  clearCompleted: (boardId: string) => api.delete(`/admin-tasks/boards/${boardId}/completed`),
+  createTask: (boardId: string, data: { title: string; priority?: string; dueDate?: string }) =>
+    api.post(`/admin-tasks/boards/${boardId}/tasks`, data),
+  updateTask: (id: string, data: { title?: string; priority?: string; dueDate?: string; isCompleted?: boolean }) =>
+    api.patch(`/admin-tasks/tasks/${id}`, data),
+  removeTask: (id: string) => api.delete(`/admin-tasks/tasks/${id}`),
 };

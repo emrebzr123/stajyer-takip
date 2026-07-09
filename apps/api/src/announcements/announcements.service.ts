@@ -3,12 +3,15 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AnnouncementEntity } from './announcement.entity';
 import { CreateAnnouncementDto } from './dto/announcement.dto';
+import { AppNotificationsService } from '../notifications/app-notifications.service';
+import { UserRole } from '../shared-types';
 
 @Injectable()
 export class AnnouncementsService {
   constructor(
     @InjectRepository(AnnouncementEntity)
     private readonly announcementsRepo: Repository<AnnouncementEntity>,
+    private readonly notifications: AppNotificationsService,
   ) {}
 
   async create(dto: CreateAnnouncementDto, userId: string): Promise<AnnouncementEntity> {
@@ -16,7 +19,20 @@ export class AnnouncementsService {
       ...dto,
       createdBy: { id: userId } as any,
     });
-    return this.announcementsRepo.save(announcement);
+    const saved = await this.announcementsRepo.save(announcement);
+
+    // Duyuru yayınlanınca TÜM stajyerlerin ziline bildirim düşer — duyurular
+    // önceden yalnızca Duyurular sayfasında duruyordu, kimse fark etmiyordu.
+    this.notifications
+      .notifyByRole([UserRole.INTERN], {
+        type: 'announcement',
+        title: `📢 Yeni duyuru: ${saved.title}`,
+        message: (saved as any).content?.slice(0, 120) || undefined,
+        link: '/stajyer/dashboard/duyurular',
+      })
+      .catch(() => undefined);
+
+    return saved;
   }
 
   async findAll(): Promise<AnnouncementEntity[]> {

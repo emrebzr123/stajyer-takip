@@ -14,6 +14,8 @@ export default function DashboardPage() {
   const [dashStats, setDashStats]       = useState<any>(null);
   const [internStats, setInternStats]   = useState<any>(null);
   const [statusDist, setStatusDist]     = useState<any[]>([]);
+  const [allTasks, setAllTasks]         = useState<any[]>([]);
+  const [deptFilter, setDeptFilter]     = useState('');
   const [internProgress, setInternProg] = useState<any[]>([]);
   const [activities, setActivities]     = useState<any[]>([]);
   const [deadlines, setDeadlines]       = useState<any[]>([]);
@@ -26,10 +28,17 @@ export default function DashboardPage() {
       tasksApi.getStatusDistribution(),
       tasksApi.getInternProgress(),
       tasksApi.getActivities(5),
-      tasksApi.getUpcomingDeadlines(5),
+      // NOT: Önceden sabit "5" limiti vardı — bu hafta bitecek 6+ görev
+      // olduğunda bazıları sessizce listeden düşüyordu. Artık "bu hafta"
+      // penceresi zaten backend'de 7 günle sınırlı olduğu için (bkz.
+      // getUpcomingDeadlines), burada yüksek bir üst sınır (50) veriyoruz —
+      // pratikte bir haftada bundan fazla görev bitmesi olası değil, ama
+      // "sessizce kesme" riskini ortadan kaldırır.
+      tasksApi.getUpcomingDeadlines(50),
       internsApi.getDeptDistribution(),
       internsApi.getStats(),
-    ]).then(([stats, dist, prog, acts, dead, dept, iStats]) => {
+      tasksApi.getAll({ limit: 500 }),
+    ]).then(([stats, dist, prog, acts, dead, dept, iStats, tasksRes]) => {
       setDashStats(stats.data);
       setStatusDist(dist.data);
       setInternProg(prog.data);
@@ -37,8 +46,39 @@ export default function DashboardPage() {
       setDeadlines(dead.data);
       setDeptDist(dept.data);
       setInternStats(iStats.data);
+      setAllTasks(tasksRes.data?.data || []);
     }).finally(() => setLoading(false));
   }, []);
+
+  // "Tümü ▾" önceden sadece süs bir <span>'dı — hiçbir işlevi yoktu. Artık
+  // gerçek bir bölüm filtresi: seçilince donut, o bölümün görev dağılımını
+  // istemci tarafında yeniden hesaplar.
+  const departmentOptions = React.useMemo(() => {
+    const names = new Set<string>();
+    for (const t of allTasks) {
+      const n = t.department?.name || t.intern?.department?.name;
+      if (n) names.add(n);
+    }
+    return Array.from(names).sort();
+  }, [allTasks]);
+
+  const STATUS_DONUT_COLOR: Record<string, string> = {
+    'Tamamlandı': '#22C55E', 'Devam Ediyor': '#F97316',
+    'Beklemede': '#9333EA', 'Gecikmiş': '#EF4444', 'Planlandı': '#9CA3AF',
+  };
+
+  const filteredStatusDist = React.useMemo(() => {
+    if (!deptFilter) return statusDist;
+    const counts = new Map<string, number>();
+    for (const t of allTasks) {
+      const dept = t.department?.name || t.intern?.department?.name;
+      if (dept !== deptFilter) continue;
+      counts.set(t.status, (counts.get(t.status) || 0) + 1);
+    }
+    return Array.from(counts.entries()).map(([status, count]) => ({
+      status, count, color: STATUS_DONUT_COLOR[status] || '#9CA3AF',
+    }));
+  }, [deptFilter, statusDist, allTasks]);
 
   const STAT_CARDS = dashStats
     ? [
@@ -51,7 +91,7 @@ export default function DashboardPage() {
       ]
     : [];
 
-  const totalTasks = statusDist.reduce((s, d) => s + d.count, 0);
+  const totalTasks = filteredStatusDist.reduce((s, d) => s + d.count, 0);
   const maxDept    = Math.max(...deptDist.map((d: any) => parseInt(d.count) || 0), 1);
 
   if (loading) {
@@ -77,10 +117,20 @@ export default function DashboardPage() {
         <div className="card">
           <div className="card-header">
             <span className="card-title">Görev Durum Dağılımı</span>
-            <span className="dropdown-sm">Tümü ▾</span>
+            <select
+              value={deptFilter}
+              onChange={(e) => setDeptFilter(e.target.value)}
+              style={{
+                fontSize: 12, border: '1px solid var(--border)', borderRadius: 6,
+                padding: '4px 8px', color: 'var(--text-secondary)', background: '#fff', cursor: 'pointer',
+              }}
+            >
+              <option value="">Tümü</option>
+              {departmentOptions.map((d) => <option key={d} value={d}>{d}</option>)}
+            </select>
           </div>
-          {statusDist.length > 0 ? (
-            <DonutChart data={statusDist} total={totalTasks} centerLabel="Toplam Görev" />
+          {filteredStatusDist.length > 0 ? (
+            <DonutChart data={filteredStatusDist} total={totalTasks} centerLabel="Toplam Görev" />
           ) : (
             <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>Veri yok</div>
           )}
@@ -94,19 +144,21 @@ export default function DashboardPage() {
           {deadlines.length === 0 ? (
             <div style={{ color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>Yaklaşan son tarih yok</div>
           ) : (
-            deadlines.map((t: any, i) => (
-              <div key={i} className="list-item">
-                <Avatar name={t.intern?.user?.name || '-'} size="md" />
-                <div className="list-item-content">
-                  <div className="list-item-title">{t.title}</div>
-                  <div className="list-item-sub">{t.intern?.user?.name}</div>
+            <div style={{ maxHeight: deadlines.length > 5 ? 320 : undefined, overflowY: deadlines.length > 5 ? 'auto' : undefined }}>
+              {deadlines.map((t: any, i) => (
+                <div key={i} className="list-item">
+                  <Avatar name={t.intern?.user?.name || '-'} size="md" />
+                  <div className="list-item-content">
+                    <div className="list-item-title">{t.title}</div>
+                    <div className="list-item-sub">{t.intern?.user?.name}</div>
+                  </div>
+                  <div className="list-item-date">
+                    <Icon name="calendar" size={14} />
+                    {formatDate(t.dueDate)}
+                  </div>
                 </div>
-                <div className="list-item-date">
-                  <Icon name="calendar" size={14} />
-                  {formatDate(t.dueDate)}
-                </div>
-              </div>
-            ))
+              ))}
+            </div>
           )}
         </div>
 

@@ -78,8 +78,8 @@ export default function AyarlarPage() {
       toast.error('Yeni şifreler eşleşmiyor.');
       return;
     }
-    if (pwd.next.length < 6) {
-      toast.error('Yeni şifre en az 6 karakter olmalı.');
+    if (pwd.next.length < 8) {
+      toast.error('Yeni şifre en az 8 karakter olmalı.');
       return;
     }
     setPwdLoad(true);
@@ -184,7 +184,7 @@ export default function AyarlarPage() {
           </div>
           <div className="form-group">
             <label className="form-label">E-posta</label>
-            <input className="form-input" type="email" value={profile.email}
+            <input className="form-input" type="text" inputMode="email" value={profile.email}
               onChange={(e) => setProfile((p) => ({ ...p, email: e.target.value }))} />
           </div>
           <Button loading={profLoading} onClick={handleProfileSave} style={{ marginTop: 4 }}>
@@ -279,7 +279,7 @@ export default function AyarlarPage() {
             </div>
             <div className="form-group">
               <label className="form-label">E-posta *</label>
-              <input className="form-input" type="email" value={newMgr.email}
+              <input className="form-input" type="text" inputMode="email" value={newMgr.email}
                 onChange={(e) => setNewMgr((p) => ({ ...p, email: e.target.value }))} />
             </div>
             <div className="form-group">

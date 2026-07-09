@@ -1,8 +1,12 @@
 'use client';
+import SendMailModal from './SendMailModal';
 import React from 'react';
 import Avatar from '../ui/Avatar';
 import Badge from '../ui/Badge';
 import Icon from '../ui/Icon';
+import { internsApi, tasksApi, documentsApi, fileUrl } from '@/lib/api';
+import api from '@/lib/api';
+import toast from 'react-hot-toast';
 
 interface InternDrawerProps {
   intern: any;
@@ -24,7 +28,54 @@ function InfoRow({ label, value }: { label: string; value?: string | string[] })
 }
 
 export default function InternDrawer({ intern, onClose }: InternDrawerProps) {
+  const [mailOpen, setMailOpen] = React.useState(false);
+  const [sending, setSending] = React.useState(false);
+  const [confirmResend, setConfirmResend] = React.useState(false);
+  // Yerel gönderim durumu — sunucudan gelen intern.evaluationFormSentAt ile başlar,
+  // butonla gönderilince anında güncellenir (drawer'ı yenilemeye gerek kalmaz).
+  const [sentAt, setSentAt] = React.useState<string | null>(intern.evaluationFormSentAt || null);
+  // Stajyerin görevleri, belgeleri ve devam kayıtları — yönetici "bu stajyer
+  // ne durumda"yı artık tek ekrandan görür (drawer önceden sadece kimlik
+  // bilgisi gösteriyordu).
+  const [internTasks, setInternTasks] = React.useState<any[]>([]);
+  const [internDocs, setInternDocs] = React.useState<any[]>([]);
+  const [attendance, setAttendance] = React.useState<any[]>([]);
+  const [detailsLoading, setDetailsLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    Promise.all([
+      tasksApi.getAll({ internId: intern.id, limit: 100 }),
+      documentsApi.getAll({ internId: intern.id }),
+      api.get(`/attendance/history?internId=${intern.id}`).catch(() => ({ data: [] })),
+    ]).then(([tRes, dRes, aRes]) => {
+      setInternTasks(tRes.data?.data || []);
+      setInternDocs(dRes.data || []);
+      setAttendance((aRes.data || []).slice(0, 7));
+    }).catch(() => undefined)
+      .finally(() => setDetailsLoading(false));
+  }, [intern.id]);
+
   const name = intern.user?.name || '-';
+
+  const handleSendEvaluation = async (force = false) => {
+    setSending(true);
+    try {
+      const r = await internsApi.sendEvaluationForm(intern.id, force);
+      setSentAt(r.data?.sentAt || new Date().toISOString());
+      setConfirmResend(false);
+      toast.success('📨 Değerlendirme formu stajyerin e-postasına gönderildi.');
+    } catch (e: any) {
+      if (e?.response?.status === 409) {
+        // Daha önce gönderilmiş — yeniden gönderim onayı iste
+        setConfirmResend(true);
+        toast(e.response.data?.message || 'Form daha önce gönderilmiş.', { icon: 'ℹ️' });
+      } else {
+        toast.error(e?.response?.data?.message || 'Form gönderilemedi.');
+      }
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <>
@@ -51,6 +102,7 @@ export default function InternDrawer({ intern, onClose }: InternDrawerProps) {
         {/* Header */}
         <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontWeight: 700, fontSize: 16 }}>Stajyer Detayları</span>
+          <button onClick={() => setMailOpen(true)} style={{ padding:'6px 14px', borderRadius:8, background:'var(--primary)', color:'#fff', border:'none', fontWeight:700, fontSize:13, cursor:'pointer' }}>📧 Mail Gönder</button>
           <button className="action-btn" onClick={onClose}><Icon name="x" size={18} /></button>
         </div>
 
@@ -71,6 +123,62 @@ export default function InternDrawer({ intern, onClose }: InternDrawerProps) {
 
         {/* Detaylar */}
         <div style={{ padding: '0 24px 24px' }}>
+          {/* ── Görevler ── */}
+          <div style={{ fontWeight: 700, fontSize: 13, padding: '16px 0 8px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            📋 Görevler ({internTasks.length})
+          </div>
+          {detailsLoading ? (
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Yükleniyor…</div>
+          ) : internTasks.length === 0 ? (
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Atanmış görev yok.</div>
+          ) : internTasks.slice(0, 6).map((t: any) => (
+            <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid #F1F5F9' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.title}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{t.status} · Son: {new Date(t.dueDate).toLocaleDateString('tr-TR')}</div>
+              </div>
+              <span style={{ fontSize: 12, fontWeight: 800, color: t.progress === 100 ? '#22C55E' : 'var(--text-secondary)', flexShrink: 0 }}>
+                %{t.progress}
+              </span>
+            </div>
+          ))}
+
+          {/* ── Belgeler ── */}
+          <div style={{ fontWeight: 700, fontSize: 13, padding: '16px 0 8px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            📎 Belgeler ({internDocs.length})
+          </div>
+          {detailsLoading ? (
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Yükleniyor…</div>
+          ) : internDocs.length === 0 ? (
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Yüklenmiş belge yok.</div>
+          ) : internDocs.slice(0, 5).map((d: any) => (
+            <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid #F1F5F9' }}>
+              <span style={{ fontSize: 13, flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.name}</span>
+              <a href={fileUrl(d.url)} target="_blank" rel="noopener noreferrer"
+                style={{ fontSize: 11, fontWeight: 700, color: '#2563EB', textDecoration: 'none', flexShrink: 0 }}>
+                İndir
+              </a>
+            </div>
+          ))}
+
+          {/* ── Devam (son 7 kayıt) ── */}
+          {attendance.length > 0 && (
+            <>
+              <div style={{ fontWeight: 700, fontSize: 13, padding: '16px 0 8px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                🕐 Devam Kaydı (son {attendance.length})
+              </div>
+              {attendance.map((a: any) => (
+                <div key={a.id} style={{ display: 'flex', gap: 8, padding: '5px 0', fontSize: 12, borderBottom: '1px solid #F1F5F9' }}>
+                  <span style={{ fontWeight: 600, minWidth: 84 }}>{new Date(a.date).toLocaleDateString('tr-TR')}</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>
+                    Giriş: {a.checkIn ? new Date(a.checkIn).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                    {' · '}Çıkış: {a.checkOut ? new Date(a.checkOut).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                  </span>
+                </div>
+              ))}
+            </>
+          )}
+
           <div style={{ fontWeight: 700, fontSize: 13, padding: '16px 0 8px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
             Kişisel Bilgiler
           </div>
@@ -101,6 +209,57 @@ export default function InternDrawer({ intern, onClose }: InternDrawerProps) {
           <InfoRow label="Başlangıç"  value={intern.startDate} />
           <InfoRow label="Bitiş"      value={intern.endDate} />
 
+          {/* ── Staj Sonu Değerlendirme Formu ─────────────────────────────
+              Google Anket linki stajyerin e-postasına gönderilir. Staj
+              bitiminden sonraki gün gönderilmemişse otomatik de gönderilir. */}
+          <div style={{ fontWeight: 700, fontSize: 13, padding: '16px 0 8px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            Staj Sonu Değerlendirme
+          </div>
+          {sentAt && !confirmResend && (
+            <div style={{
+              fontSize: 12, color: '#16A34A', background: '#F0FDF4',
+              border: '1px solid #BBF7D0', borderRadius: 8,
+              padding: '8px 12px', marginBottom: 10, fontWeight: 600,
+            }}>
+              ✅ Form {new Date(sentAt).toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' })} tarihinde gönderildi.
+            </div>
+          )}
+          {confirmResend ? (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => handleSendEvaluation(true)}
+                disabled={sending}
+                style={{
+                  flex: 1, padding: '10px 0', borderRadius: 8, border: 'none',
+                  background: '#F97316', color: '#fff', fontWeight: 700,
+                  fontSize: 13, cursor: 'pointer',
+                }}>
+                {sending ? 'Gönderiliyor…' : '🔁 Evet, yeniden gönder'}
+              </button>
+              <button
+                onClick={() => setConfirmResend(false)}
+                style={{
+                  padding: '10px 16px', borderRadius: 8, border: 'none',
+                  background: '#F1F5F9', color: 'var(--text-secondary)',
+                  fontWeight: 600, fontSize: 13, cursor: 'pointer',
+                }}>
+                Vazgeç
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => (sentAt ? setConfirmResend(true) : handleSendEvaluation(false))}
+              disabled={sending}
+              style={{
+                width: '100%', padding: '10px 0', borderRadius: 8, border: 'none',
+                background: sentAt ? '#F1F5F9' : 'var(--primary)',
+                color: sentAt ? 'var(--text-secondary)' : '#fff',
+                fontWeight: 700, fontSize: 13, cursor: 'pointer',
+              }}>
+              {sending ? 'Gönderiliyor…' : sentAt ? '🔁 Formu Yeniden Gönder' : '📋 Değerlendirme Formu Gönder'}
+            </button>
+          )}
+
           {intern.notes && (
             <>
               <div style={{ fontWeight: 700, fontSize: 13, padding: '16px 0 8px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
@@ -113,6 +272,7 @@ export default function InternDrawer({ intern, onClose }: InternDrawerProps) {
           )}
         </div>
       </div>
+      {mailOpen && <SendMailModal open={mailOpen} onClose={() => setMailOpen(false)} intern={intern} />}
     </>
   );
 }

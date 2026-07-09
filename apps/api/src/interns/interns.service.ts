@@ -12,57 +12,66 @@ export class InternsService {
     private readonly internsRepo: Repository<InternEntity>,
   ) {}
 
+  private baseQuery() {
+    return this.internsRepo
+      .createQueryBuilder('intern')
+      .leftJoinAndSelect('intern.user', 'user')
+      .leftJoinAndSelect('intern.department', 'department')
+      .leftJoinAndSelect('intern.mentor', 'mentor')
+      .leftJoinAndSelect('intern.company', 'company');
+  }
+
   async create(dto: CreateInternDto): Promise<InternEntity> {
     const intern = this.internsRepo.create(dto);
-    const saved = await this.internsRepo.save(intern);
+    const saved  = await this.internsRepo.save(intern);
     return this.findById(saved.id);
   }
 
   async findAll(query: InternQueryDto) {
     const { page = 1, limit = 10, search, departmentId, status, term } = query;
-    const qb = this.internsRepo
-      .createQueryBuilder('intern')
-      .leftJoinAndSelect('intern.user', 'user')
-      .leftJoinAndSelect('intern.department', 'department')
-      .leftJoinAndSelect('intern.mentor', 'mentor')
-      .orderBy('intern.createdAt', 'DESC');
+    const qb = this.baseQuery().orderBy('intern.createdAt', 'DESC');
 
     if (search) {
       qb.andWhere(
-        '(LOWER(user.name) LIKE :s OR LOWER(user.email) LIKE :s OR LOWER(department.name) LIKE :s)',
+        '(LOWER(user.name) LIKE :s OR LOWER(user.email) LIKE :s OR LOWER(department.name) LIKE :s OR LOWER(company.name) LIKE :s)',
         { s: `%${search.toLowerCase()}%` },
       );
     }
     if (departmentId) qb.andWhere('intern.departmentId = :departmentId', { departmentId });
-    if (status) qb.andWhere('intern.status = :status', { status });
-    if (term) qb.andWhere('LOWER(intern.term) LIKE :term', { term: `%${term.toLowerCase()}%` });
+    if (status)       qb.andWhere('intern.status = :status', { status });
+    if (term)         qb.andWhere('LOWER(intern.term) LIKE :term', { term: `%${term.toLowerCase()}%` });
 
     const total = await qb.getCount();
-    const data = await qb.skip((page - 1) * limit).take(limit).getMany();
+    const data  = await qb.skip((page - 1) * limit).take(limit).getMany();
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
   async findById(id: string): Promise<InternEntity> {
-    const intern = await this.internsRepo
-      .createQueryBuilder('intern')
-      .leftJoinAndSelect('intern.user', 'user')
-      .leftJoinAndSelect('intern.department', 'department')
-      .leftJoinAndSelect('intern.mentor', 'mentor')
-      .where('intern.id = :id', { id })
-      .getOne();
+    const intern = await this.baseQuery().where('intern.id = :id', { id }).getOne();
     if (!intern) throw new NotFoundException('Stajyer bulunamadı.');
     return intern;
   }
 
   async update(id: string, dto: UpdateInternDto): Promise<InternEntity> {
-    // Direkt SQL update — ilişki yükleme sorununu önler
     const updateData: any = {};
-    if (dto.departmentId !== undefined) updateData.departmentId = dto.departmentId;
-    if (dto.mentorId !== undefined) updateData.mentorId = dto.mentorId;
-    if (dto.term !== undefined) updateData.term = dto.term;
-    if (dto.status !== undefined) updateData.status = dto.status;
-    if (dto.startDate !== undefined) updateData.startDate = dto.startDate;
-    if (dto.endDate !== undefined) updateData.endDate = dto.endDate;
+    if (dto.companyId        !== undefined) updateData.companyId        = dto.companyId;
+    if (dto.departmentId     !== undefined) updateData.departmentId     = dto.departmentId;
+    if (dto.mentorId         !== undefined) updateData.mentorId         = dto.mentorId;
+    if (dto.term             !== undefined) updateData.term             = dto.term;
+    if (dto.status           !== undefined) updateData.status           = dto.status;
+    if (dto.startDate        !== undefined) updateData.startDate        = dto.startDate;
+    if (dto.endDate          !== undefined) updateData.endDate          = dto.endDate;
+    if (dto.phone            !== undefined) updateData.phone            = dto.phone;
+    if (dto.university       !== undefined) updateData.university       = dto.university;
+    if (dto.academicDepartment !== undefined) updateData.academicDepartment = dto.academicDepartment;
+    if (dto.gpa              !== undefined) updateData.gpa              = dto.gpa;
+    if (dto.internType       !== undefined) updateData.internType       = dto.internType;
+    if (dto.workType         !== undefined) updateData.workType         = dto.workType;
+    if (dto.hybridDays       !== undefined) updateData.hybridDays       = dto.hybridDays;
+    if (dto.notes            !== undefined) updateData.notes            = dto.notes;
+    if (dto.tcNo             !== undefined) updateData.tcNo             = dto.tcNo;
+    if (dto.birthDate        !== undefined) updateData.birthDate        = dto.birthDate;
+    if (dto.address          !== undefined) updateData.address          = dto.address;
 
     await this.internsRepo
       .createQueryBuilder()
@@ -71,7 +80,6 @@ export class InternsService {
       .where('id = :id', { id })
       .execute();
 
-    // Güncel veriyi ilişkileriyle birlikte döndür
     return this.findById(id);
   }
 
@@ -96,7 +104,7 @@ export class InternsService {
           .where('id = :userId', { userId })
           .execute();
       }
-    } catch { /* görmezden gel */ }
+    } catch { /* ignore */ }
 
     return { message: 'Stajyer silindi.' };
   }

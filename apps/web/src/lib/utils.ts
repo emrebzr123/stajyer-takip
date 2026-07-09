@@ -65,3 +65,49 @@ export function progressColor(status: string): string {
 export function clsx(...classes: (string | undefined | null | false)[]): string {
   return classes.filter(Boolean).join(' ');
 }
+
+// Mentör/kullanıcı adından otomatik e-posta local-part'ı üretir.
+// name.toLowerCase() (locale'siz) Türkçe "İ" (U+0130) harfini "i" + birleşik
+// nokta işaretine (U+0307) çevirir ve "I" harfini "ı" yerine "i" yapar —
+// bu da bozuk/eksik e-postalara yol açıyordu. toLocaleLowerCase('tr-TR')
+// kullanarak Türkçe harfleri (ç, ğ, ı, ö, ş, ü) doğru ve öngörülebilir
+// şekilde koruyoruz; sadece boşluk/kesme işareti gibi ayraçları noktaya
+// çeviriyoruz, harfleri SİLMİYORUZ.
+export function toEmailLocalPart(name: string): string {
+  return name
+    .trim()
+    .toLocaleLowerCase('tr-TR')
+    .replace(/['’]/g, '')
+    .replace(/[^a-zçğıöşü0-9]+/g, '.')
+    .replace(/\.+/g, '.')
+    .replace(/^\.|\.$/g, '');
+}
+
+// 'YYYY-MM-DD' biçimindeki tarih string'lerini YEREL saat dilimine göre
+// (UTC'ye kaydırmadan) ayrıştırır. `new Date('YYYY-MM-DD')` bu string'i
+// UTC gece yarısı olarak yorumlar; UTC+3 gibi bir tarayıcıda bu, günün
+// aslında 03:00'te başlaması anlamına gelir ve hafta sınırı gibi
+// karşılaştırmalarda görevlerin yanlış haftaya düşmesine (ya da hiç
+// düşmemesine) neden olur.
+export function parseLocalDate(dateStr: string): Date {
+  if (!dateStr) return new Date(NaN);
+  const datePart = dateStr.split('T')[0];
+  const [y, m, d] = datePart.split('-').map(Number);
+  if (!y || !m || !d) return new Date(dateStr);
+  return new Date(y, m - 1, d, 0, 0, 0, 0);
+}
+
+// Türkiye akademik takvimine kabaca uyan varsayılan "Dönem / Staj Yılı"
+// değerini üretir (örn. "Yaz 2026"). Stajyer Ekle formunda kullanıcı hiç
+// dokunmadan alan otomatik dolu gelsin diye kullanılır; kullanıcı isterse
+// serbestçe değiştirebilir.
+export function getDefaultTerm(date: Date = new Date()): string {
+  const month = date.getMonth() + 1; // 1-12
+  const year = date.getFullYear();
+  let season: string;
+  if (month >= 6 && month <= 8) season = 'Yaz';
+  else if (month >= 9 && month <= 11) season = 'Güz';
+  else if (month === 12 || month <= 2) season = 'Kış';
+  else season = 'Bahar';
+  return `${season} ${year}`;
+}

@@ -1,21 +1,38 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'path';
+import { existsSync, mkdirSync } from 'fs';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   // Global prefix
   app.setGlobalPrefix('api/v1');
 
-// CORS
+  // Yüklenen belgelerin (documents) tarayıcıdan indirilebilmesi için
+  // uploads klasörünü statik servis et. Bu olmadan belge kaydı oluşuyor
+  // ama /uploads/... URL'si 404 veriyordu. Global prefix (api/v1) statik
+  // servise uygulanmaz; dosyalar doğrudan http://host:3001/uploads/...
+  // adresinden sunulur.
+  const uploadDir = join(process.cwd(), process.env.UPLOAD_DEST || './uploads');
+  if (!existsSync(uploadDir)) mkdirSync(uploadDir, { recursive: true });
+  app.useStaticAssets(uploadDir, { prefix: '/uploads/' });
+
+  // CORS
   app.enableCors({
-    origin: (origin: any, callback: any) => {
-      if (!origin || origin.endsWith('.vercel.app') || origin.endsWith('.railway.app') || origin === 'http://localhost:3000') {
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      const allowed = [
+        process.env.FRONTEND_URL || 'http://localhost:3000',
+        'http://localhost:3000',
+      ];
+      // vercel.app domainlerinin tümüne izin ver
+      if (!origin || allowed.includes(origin) || origin.endsWith('.vercel.app') || origin.endsWith('.railway.app')) {
         callback(null, true);
       } else {
-        callback(new Error('CORS error'));
+        callback(new Error('CORS policy violation'));
       }
     },
     credentials: true,
