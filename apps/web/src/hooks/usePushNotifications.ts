@@ -38,6 +38,18 @@ export function usePushNotifications() {
     navigator.serviceWorker.ready.then(async (reg) => {
       const sub = await reg.pushManager.getSubscription();
       setSubscribed(!!sub);
+
+      // iOS Safari, aboneliği zaman zaman sessizce geçersiz kılabiliyor
+      // (özellikle uygulama uzun süre açılmadıysa ya da bir push'a
+      // bildirim gösterilmesi gecikmişse). Cihazda hâlâ geçerli bir
+      // abonelik varsa, uygulama her açıldığında bunu sunucuya YENİDEN
+      // gönderiyoruz — böylece sunucudaki kayıt hep güncel kalır ve
+      // olası bir senkron kayması (abonelik cihazda var ama sunucuda
+      // silinmiş/eskimiş) en geç bir sonraki açılışta kendi kendine
+      // düzelir. Kullanıcıya hiçbir izin sorusu göstermez, sessiz çalışır.
+      if (sub) {
+        api.post('/notifications/push/subscribe', sub.toJSON()).catch(() => undefined);
+      }
     }).catch(() => undefined);
   }, []);
 
