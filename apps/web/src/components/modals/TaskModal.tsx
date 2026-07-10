@@ -100,7 +100,7 @@ export default function TaskModal({ open, onClose, onSuccess, task }: TaskModalP
   if (!open) return null;
 
   return (
-    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="modal-overlay">
       <div className="modal" style={{ maxWidth: 580 }}>
         <div className="modal-header">
           <span className="modal-title">{isEdit ? 'Görevi Düzenle' : 'Yeni Görev Oluştur'}</span>

@@ -422,7 +422,7 @@ export default function InternModal({ open, onClose, onSuccess, intern }: Intern
   );
 
   return (
-    <div className="modal-overlay" onClick={e => e.target===e.currentTarget&&onClose()}>
+    <div className="modal-overlay">
       <div className="modal" style={{ maxWidth:600, maxHeight:'90vh', overflow:'hidden', display:'flex', flexDirection:'column' }}>
         <div className="modal-header">
           <span className="modal-title">{isEdit?'Stajyer Düzenle':'Yeni Stajyer Ekle'}</span>
