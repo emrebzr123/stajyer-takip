@@ -29,7 +29,7 @@ export class AnnouncementsController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   remove(@Param('id') id: string) {
     return this.announcementsService.remove(id);
   }
