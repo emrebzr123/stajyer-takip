@@ -155,6 +155,24 @@ export default function AyarlarPage() {
     }
   };
 
+  // Rol değiştirme (Admin ⇄ Yönetici) — backend tarafında da bu işlem
+  // SADECE admin'e izinli (bkz. users.controller.ts) — bir manager bu
+  // butona bassa bile backend reddeder, sadece admin girişinde anlamlı.
+  const [roleChanging, setRoleChanging] = useState<string | null>(null);
+  const handleRoleChange = async (m: any, newRole: 'admin' | 'manager') => {
+    setRoleChanging(m.id);
+    try {
+      await api.patch(`/users/${m.id}`, { role: newRole });
+      toast.success(`${m.name} artık ${newRole === 'admin' ? 'Admin' : 'Yönetici'}.`);
+      await loadManagers();
+    } catch (e: any) {
+      const msg = e?.response?.data?.message;
+      toast.error(Array.isArray(msg) ? msg.join(', ') : msg || 'Rol değiştirilemedi.');
+    } finally {
+      setRoleChanging(null);
+    }
+  };
+
   const isSelf = (id: string) => id === user?.id;
 
   return (
@@ -245,22 +263,53 @@ export default function AyarlarPage() {
                   <td>{m.email}</td>
                   <td><span style={{ fontWeight: 600, color: m.role === 'admin' ? 'var(--primary)' : 'var(--text-secondary)', fontSize: 12 }}>{m.role === 'admin' ? 'Admin' : 'Yönetici'}</span></td>
                   <td>
-                    {isSelf(m.id) ? (
-                      <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Silinemez</span>
-                    ) : confirmDel === m.id ? (
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button className="btn-danger" onClick={() => handleDelete(m.id)} disabled={!!deleting}
-                          style={{ fontSize: 12, padding: '4px 10px' }}>
-                          {deleting === m.id ? '…' : 'Evet, Sil'}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {/* Rol değiştirme — sadece giriş yapan admin ise görünür.
+                          Backend de bunu ayrıca zorunlu kılıyor. */}
+                      {user?.role === 'admin' && (
+                        m.role === 'admin' ? (
+                          <button
+                            onClick={() => handleRoleChange(m, 'manager')}
+                            disabled={roleChanging === m.id}
+                            title="Yönetici yap (admin yetkisini kaldır)"
+                            style={{
+                              fontSize: 11, fontWeight: 600, padding: '4px 8px', borderRadius: 6,
+                              border: '1px solid var(--border)', background: '#fff',
+                              color: 'var(--text-secondary)', cursor: 'pointer',
+                            }}>
+                            {roleChanging === m.id ? '…' : 'Yönetici Yap'}
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleRoleChange(m, 'admin')}
+                            disabled={roleChanging === m.id}
+                            title="Admin yap (tüm yetkileri verir)"
+                            style={{
+                              fontSize: 11, fontWeight: 600, padding: '4px 8px', borderRadius: 6,
+                              border: '1px solid var(--primary)', background: '#EFF6FF',
+                              color: 'var(--primary)', cursor: 'pointer',
+                            }}>
+                            {roleChanging === m.id ? '…' : 'Admin Yap'}
+                          </button>
+                        )
+                      )}
+                      {isSelf(m.id) ? (
+                        <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Silinemez</span>
+                      ) : confirmDel === m.id ? (
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button className="btn-danger" onClick={() => handleDelete(m.id)} disabled={!!deleting}
+                            style={{ fontSize: 12, padding: '4px 10px' }}>
+                            {deleting === m.id ? '…' : 'Evet, Sil'}
+                          </button>
+                          <button className="btn-secondary" onClick={() => setConfirmDel(null)}
+                            style={{ fontSize: 12, padding: '4px 10px' }}>İptal</button>
+                        </div>
+                      ) : (
+                        <button className="action-btn delete" onClick={() => setConfirmDel(m.id)} title="Sil">
+                          <Icon name="trash" size={14} />
                         </button>
-                        <button className="btn-secondary" onClick={() => setConfirmDel(null)}
-                          style={{ fontSize: 12, padding: '4px 10px' }}>İptal</button>
-                      </div>
-                    ) : (
-                      <button className="action-btn delete" onClick={() => setConfirmDel(m.id)} title="Sil">
-                        <Icon name="trash" size={14} />
-                      </button>
-                    )}
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
