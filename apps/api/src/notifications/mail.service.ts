@@ -130,8 +130,8 @@ Sistem üzerinden staj süreciniz kapsamında profilinize yeni bir görev tanım
 Tanımlanan Görevin Detayları:
 - Görev Adı: ${gorevAdi}
 - Görev Açıklaması: ${gorevAciklamasi || '—'}
-- Oluşturma Tarihi: ${olusturmaTarihi} (Otomatik güncel gün)
-- Son Teslim Tarihi: ${bitisTarihi} (Sistemden seçilen tarih)
+- Oluşturma Tarihi: ${olusturmaTarihi}
+- Son Teslim Tarihi: ${bitisTarihi}
 
 Söz konusu görevi, panelinizdeki "Haftalık Planım" alanından inceleyebilir, süreç içerisindeki ilerlemelerinizi güncelleyebilirsiniz. Çalışmalarınızda başarılar dileriz.
 
