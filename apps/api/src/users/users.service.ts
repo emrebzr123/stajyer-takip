@@ -40,6 +40,22 @@ export class UsersService {
   async update(id: string, dto: UpdateUserDto): Promise<UserEntity> {
     const user = await this.findById(id);
     const { newPassword, ...rest } = dto;
+
+    // GÜVENLİK FRENİ: Sistemde tek admin kalmışsa, o admin'i (kendini ya da
+    // bir başkasının onu) Personel'e düşürmek YASAK — aksi halde kimse
+    // artık kimseyi tekrar admin yapamaz (Admin Yap butonu sadece Yönetici
+    // panelinde var, oraya girebilmek zaten admin olmayı gerektiriyor).
+    // Tek çıkış yolu böyle bir durumda veritabanına doğrudan SQL ile
+    // müdahale etmek olurdu — bunu tamamen önlüyoruz.
+    if (dto.role !== undefined && dto.role !== 'admin' && user.role === 'admin') {
+      const adminCount = await this.usersRepo.count({ where: { role: 'admin' as any } });
+      if (adminCount <= 1) {
+        throw new BadRequestException(
+          'Sistemdeki son Yönetici (admin) hesabı Personel yapılamaz — önce başka birini Yönetici yapın.',
+        );
+      }
+    }
+
     Object.assign(user, rest);
     // Yönetici şifre sıfırlaması — mevcut şifre doğrulaması gerektirmez
     if (newPassword) {
