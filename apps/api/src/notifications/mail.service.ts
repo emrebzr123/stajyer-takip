@@ -34,6 +34,9 @@ export class MailService {
     subject: string;
     text: string;
     fromName?: string;
+    // Brevo'nun beklediği format: base64 içerik + dosya adı. Birden fazla
+    // ek desteklenir ama şu an sadece UI'dan tek dosya gönderiliyor.
+    attachment?: { content: string; name: string }[];
   }): Promise<void> {
     const apiKey = this.config.get('BREVO_API_KEY');
     const senderEmail = this.config.get('BREVO_SENDER_EMAIL');
@@ -56,6 +59,7 @@ export class MailService {
         to: [{ email: params.to, name: params.toName || params.to }],
         subject: params.subject,
         textContent: params.text,
+        ...(params.attachment && params.attachment.length ? { attachment: params.attachment } : {}),
       }),
     });
 
@@ -85,7 +89,7 @@ export class MailService {
 
 Yapılan değerlendirme sonucunda, başvurunuzun olumlu sonuçlandığını ve Ar-Ge bünyesinde staj yapmaya hak kazandığınızı memnuniyetle bildiririz.
 
-Staj süreciniz boyunca kullanacağınız Stajyer Takip Sistemi panel giriş bilgileriniz aşağıda yer almaktadır:
+Staj süreciniz boyunca kullanacağınız Görev Takip Sistemi panel giriş bilgileriniz aşağıda yer almaktadır:
 
 Giriş E-postanız : ${stajyerEmail}
 Giriş Şifreniz   : ${sifre}
@@ -144,10 +148,15 @@ ${firma}`,
     }
   }
 
-  async sendCustom(to: string, subject: string, text: string): Promise<void> {
+  async sendCustom(
+    to: string,
+    subject: string,
+    text: string,
+    attachment?: { content: string; name: string }[],
+  ): Promise<void> {
     try {
-      await this.sendViaBrevo({ to, subject, text, fromName: 'Electromtech' });
-      this.logger.log(`✅ Custom mail → ${to}`);
+      await this.sendViaBrevo({ to, subject, text, fromName: 'Electromtech', attachment });
+      this.logger.log(`✅ Custom mail → ${to}${attachment?.length ? ` (${attachment.length} ek)` : ''}`);
     } catch (err: any) {
       this.logger.error(`❌ Custom mail gönderilemedi → ${to}: ${err.message}`);
       throw err;
@@ -186,5 +195,34 @@ Saygılarımızla,
 ${firma}`,
     });
     this.logger.log(`✅ Değerlendirme formu → ${stajyerEmail}`);
+  }
+
+  // "Şifremi Unuttum?" akışı — kullanıcıya tek kullanımlık, 1 saat geçerli
+  // bir sıfırlama linki gönderir.
+  async sendPasswordReset(to: string, toName: string, resetLink: string): Promise<void> {
+    try {
+      await this.sendViaBrevo({
+        to,
+        toName,
+        fromName: 'Görev Takip Sistemi',
+        subject: 'Şifre Sıfırlama Talebi',
+        text: `Sayın ${toName},
+
+Hesabınız için bir şifre sıfırlama talebi aldık. Yeni bir şifre belirlemek için aşağıdaki bağlantıya tıklayın:
+
+${resetLink}
+
+Bu bağlantı güvenlik nedeniyle 1 saat sonra geçersiz olacak ve sadece bir kez kullanılabilir.
+
+Bu talebi siz oluşturmadıysanız, bu e-postayı görmezden gelebilirsiniz — şifreniz değişmeyecektir.
+
+Saygılarımızla,
+Görev Takip Sistemi`,
+      });
+      this.logger.log(`✅ Şifre sıfırlama maili → ${to}`);
+    } catch (err: any) {
+      this.logger.error(`❌ Şifre sıfırlama maili gönderilemedi → ${to}: ${err.message}`);
+      throw err;
+    }
   }
 }

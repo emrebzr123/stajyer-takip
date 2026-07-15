@@ -4,7 +4,7 @@ import ToasterProvider from '@/components/ui/ToasterProvider';
 import ServiceWorkerRegister from '@/components/pwa/ServiceWorkerRegister';
 
 export const metadata: Metadata = {
-  title: 'Stajyer Takip Sistemi',
+  title: 'Görev Takip Sistemi',
   description: 'Stajyer ve görev yönetim platformu',
   manifest: '/manifest.json',
   icons: {

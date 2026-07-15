@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import PageHeader from '@/components/layout/PageHeader';
 import Icon from '@/components/ui/Icon';
 import StatCard from '@/components/ui/StatCard';
-import { adminTasksApi } from '@/lib/api';
+import { adminTasksApi, personnelTasksApi } from '@/lib/api';
 import toast from 'react-hot-toast';
 
 const PRIORITY_COLOR: Record<string, string> = {
@@ -276,12 +276,95 @@ function BoardColumn({ board, onChanged, selected, onToggleSelect }: {
 }
 
 // ─── Sayfa ───────────────────────────────────────────────────────────────────
+// ─── Yöneticiden gelen bölüm — SALT OKUNUR (sadece tamamlama izni var) ─────
+function ManagerBoardCard({ board, active, completed, onToggle }: {
+  board: any; active: any[]; completed: any[]; onToggle: (t: any) => void;
+}) {
+  const [showCompleted, setShowCompleted] = useState(false);
+  return (
+    <div style={{
+      minWidth: 270, maxWidth: 270, flexShrink: 0, background: '#F8FAFC',
+      borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', maxHeight: 400,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <span style={{ width: 10, height: 10, borderRadius: '50%', background: board.color, flexShrink: 0 }} />
+        <span style={{ fontWeight: 700, fontSize: 14, flex: 1, wordBreak: 'break-word' }}>{board.name}</span>
+        <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600, flexShrink: 0 }}>{active.length}</span>
+      </div>
+      <div style={{ overflowY: 'auto', flex: 1 }}>
+        {active.length === 0 ? (
+          <div style={{ textAlign: 'center', color: '#CBD5E1', fontSize: 12, padding: '16px 0' }}>Devam eden görev yok. 🎉</div>
+        ) : active.map((t) => (
+          <label key={t.id} style={{
+            display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 10px',
+            borderRadius: 8, marginBottom: 6, background: '#fff', border: '1px solid var(--border)', cursor: 'pointer',
+          }}>
+            <input type="checkbox" checked={false} onChange={() => onToggle(t)}
+              style={{ width: 15, height: 15, marginTop: 2, cursor: 'pointer', accentColor: '#22C55E', flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, wordBreak: 'break-word' }}>{t.title}</div>
+              <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 10, color: PRIORITY_COLOR[t.priority], background: PRIORITY_COLOR[t.priority] + '18' }}>
+                  {t.priority}
+                </span>
+                {t.dueDate && <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>📅 {fmtDate(t.dueDate)}</span>}
+              </div>
+            </div>
+          </label>
+        ))}
+        {completed.length > 0 && (
+          <div style={{ marginTop: active.length ? 8 : 0 }}>
+            <button onClick={() => setShowCompleted((s) => !s)}
+              style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '4px 2px', fontSize: 11, fontWeight: 700, color: '#16A34A' }}>
+              ✓ {completed.length} tamamlandı {showCompleted ? '▲' : '▼'}
+            </button>
+            {showCompleted && completed.map((t) => (
+              <label key={t.id} style={{
+                display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 10px',
+                borderRadius: 8, marginTop: 6, background: '#fff', border: '1px solid var(--border)', cursor: 'pointer', opacity: 0.6,
+              }}>
+                <input type="checkbox" checked={true} onChange={() => onToggle(t)}
+                  style={{ width: 15, height: 15, marginTop: 2, cursor: 'pointer', accentColor: '#22C55E', flexShrink: 0 }} />
+                <div style={{ fontSize: 13, fontWeight: 600, textDecoration: 'line-through', wordBreak: 'break-word' }}>{t.title}</div>
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function GorevlerimPage() {
   const [boards, setBoards] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [addingBoard, setAddingBoard] = useState(false);
   const [newBoardName, setNewBoardName] = useState('');
   const [savingBoard, setSavingBoard] = useState(false);
+
+  // Yönetici'nin bana (bu Personel'e) oluşturduğu görev BÖLÜMLERİ — kişisel
+  // "Bölüm" panolarımdan TAMAMEN AYRI bir sistem, salt-okunur (bölüm/görev
+  // ekleyip silemem, sadece içindeki görevleri tamamlandı işaretleyebilirim).
+  // Tamamladığımda Yönetici'ye otomatik bildirim gider (backend tarafında).
+  const [managerBoards, setManagerBoards] = useState<any[]>([]);
+  const [managerBoardsLoading, setManagerBoardsLoading] = useState(true);
+  const [managerBoardPage, setManagerBoardPage] = useState(0);
+
+  const loadManagerBoards = () => {
+    personnelTasksApi.getMyBoards()
+      .then((r) => setManagerBoards(r.data || []))
+      .catch(() => undefined)
+      .finally(() => setManagerBoardsLoading(false));
+  };
+
+  const toggleManagerTask = async (task: any) => {
+    try {
+      await personnelTasksApi.updateTask(task.id, { isCompleted: !task.isCompleted });
+      loadManagerBoards();
+    } catch {
+      toast.error('Güncellenemedi.');
+    }
+  };
 
   // Çok bölüm eklendiğinde yatay kaydırmak yerine gerçek bir sayfalama —
   // her sayfada BOARDS_PER_PAGE kadar bölüm gösterilir.
@@ -298,7 +381,7 @@ export default function GorevlerimPage() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); loadManagerBoards(); }, []);
 
   const handleCreateBoard = async () => {
     if (!newBoardName.trim()) return;
@@ -344,6 +427,49 @@ export default function GorevlerimPage() {
         title="Görevlerim"
         subtitle="Kişisel iş takibiniz — bu bölümleri ve görevleri sadece siz görebilirsiniz."
       />
+
+      {/* Yöneticiden Gelen Projeler — kişisel "Bölüm" panolarımdan TAMAMEN
+          AYRI, SALT-OKUNUR bir sistem: bölüm/görev ekleyip silemem, sadece
+          içindeki görevleri tamamlandı işaretleyebilirim. "Görevlerim"
+          (kişisel panolar) ile BİREBİR AYNI görünüm — 4 bölüm/sayfa. */}
+      {!managerBoardsLoading && managerBoards.length > 0 && (() => {
+        const totalMPages = Math.max(1, Math.ceil(managerBoards.length / BOARDS_PER_PAGE));
+        const safeMPage = Math.min(managerBoardPage, totalMPages - 1);
+        const pagedMBoards = managerBoards.slice(safeMPage * BOARDS_PER_PAGE, safeMPage * BOARDS_PER_PAGE + BOARDS_PER_PAGE);
+        return (
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+              🏢 Yöneticiden Gelen Projeler
+            </div>
+            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+              {pagedMBoards.map((b: any) => {
+                const tasks: any[] = b.tasks || [];
+                const active = tasks.filter((t) => !t.isCompleted);
+                const completed = tasks.filter((t) => t.isCompleted);
+                return (
+                  <ManagerBoardCard key={b.id} board={b} active={active} completed={completed} onToggle={toggleManagerTask} />
+                );
+              })}
+            </div>
+            {totalMPages > 1 && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 16 }}>
+                <button onClick={() => setManagerBoardPage((p) => Math.max(0, p - 1))} disabled={safeMPage === 0} className="page-btn" style={{ opacity: safeMPage === 0 ? 0.4 : 1 }}>
+                  <Icon name="chevronLeft" size={16} />
+                </button>
+                {Array.from({ length: totalMPages }, (_, i) => (
+                  <button key={i} onClick={() => setManagerBoardPage(i)} className={`page-btn${safeMPage === i ? ' active' : ''}`}>{i + 1}</button>
+                ))}
+                <button onClick={() => setManagerBoardPage((p) => Math.min(totalMPages - 1, p + 1))} disabled={safeMPage === totalMPages - 1} className="page-btn" style={{ opacity: safeMPage === totalMPages - 1 ? 0.4 : 1 }}>
+                  <Icon name="chevronRight" size={16} />
+                </button>
+                <span style={{ fontSize: 12, color: 'var(--text-secondary)', marginLeft: 8 }}>
+                  {managerBoards.length} bölümden {safeMPage * BOARDS_PER_PAGE + 1}-{Math.min((safeMPage + 1) * BOARDS_PER_PAGE, managerBoards.length)} arası gösteriliyor
+                </span>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {!loading && boards.length > 0 && (
         <div className="stats-row stats-row-4 gorevlerim-stats">

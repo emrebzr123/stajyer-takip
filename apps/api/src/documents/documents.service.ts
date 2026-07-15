@@ -45,11 +45,12 @@ export class DocumentsService {
     });
     const saved = await this.docsRepo.save(doc);
 
-    // Stajyer belge yüklediğinde yönetici paneline (admin + tüm mentörler)
-    // uygulama içi bildirim düşer. Bildirim hatası yüklemeyi engellemez.
-    if (uploader.role === 'intern') {
+    // Stajyer belge yüklediğinde mentörüne (Personel) uygulama içi
+    // bildirim düşer — Yönetici stajyer seviyesindeki bu tür olayları
+    // görmez. Bildirim hatası yüklemeyi engellemez.
+    if (uploader.role === 'intern' && internId) {
       this.notifications
-        .notifyManagers({
+        .notifyMentor(internId, {
           type: 'document_uploaded',
           title: `📎 Yeni belge yüklendi: ${originalName}`,
           message: `${uploader.name || 'Bir stajyer'} yeni bir belge yükledi.`,
@@ -158,7 +159,8 @@ export class DocumentsService {
   // Bir stajyerin, kendisiyle paylaşılan (ama kendisinin YÜKLEMEDİĞİ) bir
   // belgeye gerçekten erişimi var mı kontrol eder — kendi görev listesinden
   // "silmek" istediğinde bunun meşru olduğundan emin olmak için.
-  private async internHasAccess(doc: DocumentEntity, internId: string): Promise<boolean> {
+  // public — controller'daki GET /:id yetki kontrolü de bunu kullanıyor.
+  async internHasAccess(doc: DocumentEntity, internId: string): Promise<boolean> {
     if (doc.internId === internId) return true;
     if (doc.sharedWithAll) return true;
     const recipient = await this.recipientsRepo.findOne({ where: { documentId: doc.id, internId } });

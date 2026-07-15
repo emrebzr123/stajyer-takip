@@ -68,12 +68,11 @@ export class SubTasksService {
       const internName = intern?.user?.name || 'Stajyer';
       // Bildirim hatası görev güncellemesini asla engellememeli
       this.notifications
-        .notifyManagers({
+        .notifyMentor(intern?.id, {
           type: 'task_completed',
           title: `✅ Görev tamamlandı: ${task.title}`,
           message: `${internName}, "${task.title}" görevindeki tüm alt görevleri tamamladı. Kontrol edebilirsiniz.`,
           link: '/dashboard/is-takip',
-          alsoUserId: intern?.mentorId,
           // Aynı görevin aynı tamamlanma olayı için tek bildirim
           dedupeKey: `task-done:${task.id}:${new Date().toISOString().slice(0, 10)}`,
         })

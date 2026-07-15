@@ -22,7 +22,7 @@ Sayın ${stajyerAdi},
 
 Yapılan değerlendirme sonucunda, başvurunuzun olumlu sonuçlandığını ve Ar-Ge bünyesinde staj yapmaya hak kazandığınızı memnuniyetle bildiririz.
 
-Staj süreciniz boyunca kullanacağınız Stajyer Takip Sistemi panel giriş bilgileriniz aşağıda yer almaktadır:
+Staj süreciniz boyunca kullanacağınız Görev Takip Sistemi panel giriş bilgileriniz aşağıda yer almaktadır:
 
 Giriş E-postanız : ${stajyerEposta}
 Giriş Şifreniz   : ${stajyerSifre}
@@ -61,8 +61,8 @@ Sistem üzerinden staj süreciniz kapsamında profilinize yeni bir görev tanım
 Tanımlanan Görevin Detayları:
 - Görev Adı: ${gorevAdi}
 - Görev Açıklaması: ${gorevAciklamasi || '—'}
-- Oluşturma Tarihi: ${olusturmaTarihi} (Otomatik güncel gün)
-- Son Teslim Tarihi: ${bitisTarihi} (Sistemden seçilen tarih)
+- Oluşturma Tarihi: ${olusturmaTarihi}
+- Son Teslim Tarihi: ${bitisTarihi}
 
 Söz konusu görevi, panelinizdeki "Haftalık Planım" alanından inceleyebilir, süreç içerisindeki ilerlemelerinizi güncelleyebilirsiniz. Çalışmalarınızda başarılar dileriz.
 

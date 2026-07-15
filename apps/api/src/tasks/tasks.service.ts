@@ -359,7 +359,14 @@ export class TasksService {
       else if (t.status === TaskStatus.DELAYED || t.isOverdue) type = 'red';
       return {
         id: t.id, type,
-        message: `<strong>${t.title}</strong> görevi ${t.status === TaskStatus.COMPLETED ? 'tamamlandı' : 'güncellendi'}.`,
+        // NOT: Önceden burada görev başlığı doğrudan bir HTML string'inin
+        // (<strong>${t.title}</strong>...) içine gömülüyor ve frontend bunu
+        // dangerouslySetInnerHTML ile DOM'a basıyordu — bir kullanıcı görev
+        // başlığına <script>/<img onerror=...> gibi kod yazarsa, Ana Sayfa'yı
+        // açan HERKESİN tarayıcısında çalışırdı (stored XSS). Artık düz metin
+        // dönüyor; başlığın kalın gösterilmesi frontend'de JSX ile (React'in
+        // kendi otomatik escape'i sayesinde güvenli) yapılıyor.
+        statusText: t.status === TaskStatus.COMPLETED ? 'tamamlandı' : 'güncellendi',
         internName: (t.intern as any)?.user?.name || '',
         taskTitle: t.title,
         createdAt: t.updatedAt,
@@ -415,12 +422,11 @@ export class TasksService {
     const preview = content.trim().slice(0, 100);
     if (author.role === 'intern') {
       this.notifications
-        .notifyManagers({
+        .notifyMentor(intern?.id, {
           type: 'task_comment',
           title: `💬 ${author.name || 'Stajyer'} yorum yaptı: ${task.title}`,
           message: preview,
           link: '/dashboard/is-takip',
-          alsoUserId: intern?.mentorId,
         })
         .catch(() => undefined);
     } else if (intern?.userId || intern?.user?.id) {

@@ -1,7 +1,7 @@
 {
-  "name": "ELECTROMTECH Stajyer Takip Sistemi",
-  "short_name": "Stajyer Takip",
-  "description": "ELECTROMTECH stajyer ve görev takip sistemi",
+  "name": "Görev Takip Sistemi",
+  "short_name": "Görev Takip",
+  "description": "Görev ve stajyer takip sistemi",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

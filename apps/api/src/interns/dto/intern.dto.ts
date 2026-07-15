@@ -24,6 +24,7 @@ export class CreateInternDto {
   @IsString() @IsOptional() workType?: string;
   @IsArray() @IsOptional() hybridDays?: string[];
   @IsString() @IsOptional() notes?: string;
+  @IsString() @IsOptional() mainTask?: string;
 }
 
 export class UpdateInternDto {
@@ -45,6 +46,7 @@ export class UpdateInternDto {
   @IsString() @IsOptional() workType?: string;
   @IsArray() @IsOptional() hybridDays?: string[];
   @IsString() @IsOptional() notes?: string;
+  @IsString() @IsOptional() mainTask?: string;
 }
 
 export class InternQueryDto {

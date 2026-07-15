@@ -21,3 +21,18 @@ export class RegisterDto {
   @IsNotEmpty({ message: 'Ad soyad zorunludur.' })
   name: string;
 }
+
+export class ForgotPasswordDto {
+  @IsEmail({}, { message: 'Geçerli bir e-posta adresi giriniz.' })
+  email: string;
+}
+
+export class ResetPasswordDto {
+  @IsString()
+  @IsNotEmpty({ message: 'Token zorunludur.' })
+  token: string;
+
+  @IsString()
+  @MinLength(8, { message: 'Şifre en az 8 karakter olmalıdır.' })
+  newPassword: string;
+}

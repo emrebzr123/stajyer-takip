@@ -82,4 +82,39 @@ export class UsersService {
     await this.usersRepo.remove(user);
     return { message: 'Kullanıcı silindi.' };
   }
+
+  // ─── Şifremi Unuttum akışı ─────────────────────────────────────────────
+  async setPasswordResetToken(userId: string, token: string, expires: Date): Promise<void> {
+    await this.usersRepo
+      .createQueryBuilder()
+      .update(UserEntity)
+      .set({ passwordResetToken: token, passwordResetExpires: expires })
+      .where('id = :id', { id: userId })
+      .execute();
+  }
+
+  // Token'la kullanıcı bulur — süresi geçmişse (ya da hiç yoksa) null döner.
+  async findByValidResetToken(token: string): Promise<UserEntity | null> {
+    const user = await this.usersRepo
+      .createQueryBuilder('user')
+      .addSelect(['user.passwordResetToken', 'user.passwordResetExpires'])
+      .where('user.passwordResetToken = :token', { token })
+      .getOne();
+
+    if (!user || !user.passwordResetExpires) return null;
+    if (new Date(user.passwordResetExpires).getTime() < Date.now()) return null;
+    return user;
+  }
+
+  // Token ile şifreyi günceller ve token'ı TEK KULLANIMLIK olacak şekilde
+  // hemen temizler.
+  async resetPasswordWithToken(userId: string, newPassword: string): Promise<void> {
+    const newHash = await bcrypt.hash(newPassword, 12);
+    await this.usersRepo
+      .createQueryBuilder()
+      .update(UserEntity)
+      .set({ passwordHash: newHash, passwordResetToken: null, passwordResetExpires: null })
+      .where('id = :id', { id: userId })
+      .execute();
+  }
 }

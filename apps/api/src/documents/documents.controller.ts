@@ -74,14 +74,30 @@ export class DocumentsController {
     );
   }
 
+  // NOT: internId parametresi önceden HİÇ doğrulanmıyordu — bir stajyer
+  // kendi internId'si yerine BAŞKA bir stajyerin ID'sini query'e koyarak
+  // onun belge listesini görebilirdi. Artık stajyer için bu parametre
+  // JWT'deki gerçek internId ile zorla eziliyor, frontend'in gönderdiği
+  // değere güvenilmiyor.
   @Get()
-  findAll(@Query('internId') internId?: string, @Query('taskId') taskId?: string) {
-    return this.documentsService.findAll(internId, taskId);
+  findAll(@CurrentUser() user: any, @Query('internId') internId?: string, @Query('taskId') taskId?: string) {
+    const effectiveInternId = user?.role === 'intern' ? user?.internId : internId;
+    return this.documentsService.findAll(effectiveInternId, taskId);
   }
 
+  // NOT: aynı sızıntı riski — bir stajyer ID'sini bilerek başka bir
+  // stajyerin belge META verisini (dosya adı, kime ait olduğu vb.)
+  // görebilirdi. Artık stajyer sadece kendi yüklediği YA DA kendisiyle
+  // paylaşılmış (sharedWithAll ya da recipients'ta olduğu) belgelere
+  // erişebiliyor — aynı mantık remove() içinde de kullanılıyor.
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.documentsService.findById(id);
+  async findOne(@Param('id') id: string, @CurrentUser() user: any) {
+    const doc = await this.documentsService.findById(id);
+    if (user?.role === 'intern') {
+      const hasAccess = await this.documentsService.internHasAccess(doc, user?.internId);
+      if (!hasAccess) throw new ForbiddenException('Bu belgeye erişim yetkiniz yok.');
+    }
+    return doc;
   }
 
   @Delete(':id')

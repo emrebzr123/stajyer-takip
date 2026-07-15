@@ -4,9 +4,12 @@ import { DueReminderService } from './due-reminder.service';
 import { InternshipEndService } from './internship-end.service';
 import { PushService } from './push.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { UserRole } from '../shared-types';
 
 @Controller('notifications')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class NotificationsController {
   constructor(
     private readonly service: AppNotificationsService,
@@ -79,7 +82,11 @@ export class NotificationsController {
 
   // Teslim tarihi hatırlatma kontrolünü elle tetikler (test/demo için).
   // Normalde her sabah 09:00'da cron ile otomatik çalışır.
+  // NOT: Önceden HİÇ rol kontrolü yoktu — giriş yapmış herhangi bir stajyer
+  // bunu tetikleyebiliyordu. run-internship-end-check GERÇEK MAIL
+  // GÖNDERİYOR (otomatik değerlendirme formu vb.) — bu yüzden sadece admin.
   @Post('run-due-check')
+  @Roles(UserRole.ADMIN)
   async runDueCheck() {
     const created = await this.dueReminder.checkDueTasks();
     return { message: `Kontrol tamamlandı. ${created} hatırlatma oluşturuldu.` };
@@ -88,6 +95,7 @@ export class NotificationsController {
   // Staj bitiş kontrolünü elle tetikler (test/demo için).
   // Normalde her sabah 09:05'te cron ile otomatik çalışır.
   @Post('run-internship-end-check')
+  @Roles(UserRole.ADMIN)
   async runInternshipEndCheck() {
     const r = await this.internshipEnd.checkInternshipEnds();
     return {

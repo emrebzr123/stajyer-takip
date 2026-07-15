@@ -17,6 +17,9 @@ const TYPE_EMOJI: Record<string, string> = {
   internship_ending: '🎓',
   internship_ended: '🏁',
   evaluation_sent: '📨',
+  personnel_task_assigned: '📋',
+  personnel_task_completed: '✅',
+  personnel_board_assigned: '📁',
   announcement: '📢',
   general: '🔔',
 };

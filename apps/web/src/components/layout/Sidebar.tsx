@@ -89,7 +89,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const initials    = getInitials(displayName);
   const avatarColor = getAvatarColor(displayName);
   const roleLabel   = user?.role === 'admin' ? 'Admin'
-    : user?.role === 'manager' ? 'Yönetici' : 'Stajyer';
+    : user?.role === 'manager' ? 'Personel' : 'Stajyer';
 
   const handleLogout = () => {
     clearAuth();
@@ -128,10 +128,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               fontWeight: 800, fontSize: 15, letterSpacing: 0.5,
               color: 'var(--text-primary)',
             }}>
-              ELECTROMTECH
-            </span>
-            <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>
-              Stajyer Takip
+              Görev Takip
             </span>
             <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>
               Sistemi

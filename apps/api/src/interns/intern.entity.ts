@@ -95,6 +95,13 @@ export class InternEntity {
   @Column({ nullable: true })
   notes: string;
 
+  // "Ana Görev" — Yönetici panelinin stajyerler hakkında gördüğü TEK bilgi.
+  // Kayıt sırasında opsiyonel olarak girilir, sonradan Personel tarafından
+  // güncellenebilir. Yönetici, stajyerin günlük görev/bildirim trafiğini
+  // GÖRMEZ — sadece bu özet alanı görür.
+  @Column({ nullable: true })
+  mainTask: string;
+
   @Column({ nullable: true })
   profilePhoto: string;
 

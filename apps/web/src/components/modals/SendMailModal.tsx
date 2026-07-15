@@ -27,18 +27,52 @@ export default function SendMailModal({ open, onClose, intern }: SendMailModalPr
   const [templateName, setTemplateName] = useState('');
   const [customTemplates, setCustomTemplates] = useState<any[]>([]);
 
+  // Ek dosya — kullanıcının bilgisayarından seçtiği TEK bir dosya, base64'e
+  // çevrilip mail ile birlikte gönderiliyor (Brevo'nun API'si bu formatı
+  // bekliyor). 10MB üzeri dosyalar reddediliyor — Brevo'nun kendi eki de
+  // benzer bir sınır koyuyor, ayrıca JSON gövde limitimiz 15mb (bkz. main.ts).
+  const MAX_ATTACHMENT_MB = 10;
+  const [attachment, setAttachment] = useState<{ file: File; base64: string } | null>(null);
+  const [attaching, setAttaching] = useState(false);
+
   const recipientName  = intern?.user?.name  || '';
   const recipientEmail = intern?.user?.email || '';
 
   useEffect(() => {
     if (!open) return;
-    setSubject(''); setBody('');
+    setSubject(''); setBody(''); setAttachment(null);
     // Kaydedilmiş şablonları yükle
     try {
       const saved = JSON.parse(localStorage.getItem('mail_templates') || '[]');
       setCustomTemplates(saved);
     } catch { setCustomTemplates([]); }
   }, [open]);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // aynı dosyayı tekrar seçebilmek için input'u sıfırla
+    if (!file) return;
+    if (file.size > MAX_ATTACHMENT_MB * 1024 * 1024) {
+      toast.error(`Dosya çok büyük — en fazla ${MAX_ATTACHMENT_MB}MB olabilir.`);
+      return;
+    }
+    setAttaching(true);
+    const reader = new FileReader();
+    reader.onload = () => {
+      // reader.result formatı: "data:application/pdf;base64,JVBERi0xLjQK..."
+      // Brevo sadece virgülden sonraki saf base64'ü istiyor, "data:...,"
+      // önekini çıkarmamız gerekiyor.
+      const result = reader.result as string;
+      const base64 = result.split(',')[1] || '';
+      setAttachment({ file, base64 });
+      setAttaching(false);
+    };
+    reader.onerror = () => {
+      toast.error('Dosya okunamadı.');
+      setAttaching(false);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const applyTemplate = (tpl: { subject: string; body: string }) => {
     setSubject(tpl.subject);
@@ -69,6 +103,7 @@ export default function SendMailModal({ open, onClose, intern }: SendMailModalPr
         subject,
         text: body,
         internName: recipientName,
+        attachment: attachment ? { content: attachment.base64, name: attachment.file.name } : undefined,
       });
       toast.success(`✅ Mail ${recipientEmail} adresine gönderildi!`);
       onClose();
@@ -124,6 +159,39 @@ export default function SendMailModal({ open, onClose, intern }: SendMailModalPr
           <div className="form-group">
             <label className="form-label">Mesaj</label>
             <textarea className="form-textarea" rows={8} value={body} onChange={e => setBody(e.target.value)} placeholder="Mail içeriği..." />
+          </div>
+
+          {/* Ek dosya — "şu evraktan yararlanın" diyip altına belgeyi
+              koyabilmek için. */}
+          <div className="form-group">
+            <label className="form-label">Ek Dosya <span style={{ fontWeight: 400, color: 'var(--text-secondary)' }}>(opsiyonel)</span></label>
+            {attachment ? (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px',
+                border: '1px solid var(--border)', borderRadius: 8, background: '#F8FAFC',
+              }}>
+                <Icon name="file" size={16} />
+                <span style={{ fontSize: 13, flex: 1, wordBreak: 'break-word' }}>{attachment.file.name}</span>
+                <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                  {(attachment.file.size / 1024 / 1024).toFixed(1)} MB
+                </span>
+                <button onClick={() => setAttachment(null)} title="Eki kaldır"
+                  style={{ border: 'none', background: 'none', color: '#EF4444', cursor: 'pointer', padding: 2 }}>
+                  <Icon name="x" size={15} />
+                </button>
+              </div>
+            ) : (
+              <label style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px',
+                border: '1px dashed var(--border)', borderRadius: 8, cursor: 'pointer',
+                fontSize: 13, color: 'var(--text-secondary)', width: 'fit-content',
+              }}>
+                <Icon name="download" size={15} style={{ transform: 'rotate(180deg)' }} />
+                {attaching ? 'Yükleniyor…' : 'Bilgisayardan dosya seç'}
+                <input type="file" onChange={handleFileSelect} disabled={attaching} style={{ display: 'none' }} />
+              </label>
+            )}
+            <small style={{ color: 'var(--text-secondary)', fontSize: 11 }}>En fazla {MAX_ATTACHMENT_MB}MB.</small>
           </div>
 
           {/* Şablon kaydet */}

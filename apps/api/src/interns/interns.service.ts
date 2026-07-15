@@ -72,6 +72,7 @@ export class InternsService {
     if (dto.tcNo             !== undefined) updateData.tcNo             = dto.tcNo;
     if (dto.birthDate        !== undefined) updateData.birthDate        = dto.birthDate;
     if (dto.address          !== undefined) updateData.address          = dto.address;
+    if (dto.mainTask         !== undefined) updateData.mainTask         = dto.mainTask;
 
     await this.internsRepo
       .createQueryBuilder()

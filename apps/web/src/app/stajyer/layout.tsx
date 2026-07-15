@@ -16,7 +16,8 @@ export default function StajyerLayout({ children }: { children: React.ReactNode 
 
   useEffect(() => {
     if (_hasHydrated && !isAuthenticated) router.replace('/auth/login');
-    if (_hasHydrated && isAuthenticated && user?.role !== 'intern') router.replace('/dashboard');
+    if (_hasHydrated && isAuthenticated && user?.role === 'admin') router.replace('/yonetici/dashboard');
+    if (_hasHydrated && isAuthenticated && user?.role === 'manager') router.replace('/dashboard');
   }, [_hasHydrated, isAuthenticated, user, router]);
 
   if (!_hasHydrated) return (

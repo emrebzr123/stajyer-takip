@@ -242,7 +242,7 @@ export default function InternModal({ open, onClose, onSuccess, intern }: Intern
     term:'', status:'Aktif', startDate:'', endDate:'',
     internType:'Yaz Stajı', workType:'Tam Zamanlı',
     hybridDays:[] as string[],
-    tcNo:'', birthDate:'', address:'', notes:'', phone:'',
+    tcNo:'', birthDate:'', address:'', notes:'', phone:'', mainTask:'',
   });
 
   // Mevcut firmalar/mentörler API'den yükle
@@ -283,6 +283,7 @@ export default function InternModal({ open, onClose, onSuccess, intern }: Intern
         hybridDays: intern.hybridDays || [],
         tcNo: intern.tcNo || '', birthDate: intern.birthDate || '',
         address: intern.address || '', notes: intern.notes || '', phone: intern.phone || '',
+        mainTask: intern.mainTask || '',
       });
     } else {
       // "Dönem / Staj Yılı" alanı otomatik dolu gelsin (örn. "Yaz 2026") —
@@ -290,7 +291,7 @@ export default function InternModal({ open, onClose, onSuccess, intern }: Intern
       setForm({ name:'',email:'',password:'', companyName:'',mentorName:'',departmentName:'',
         university:'',academicDepartment:'',gpa:'', term:getDefaultTerm(),status:'Aktif',startDate:'',endDate:'',
         internType:'Yaz Stajı',workType:'Tam Zamanlı',hybridDays:[],
-        tcNo:'',birthDate:'',address:'',notes:'',phone:'' });
+        tcNo:'',birthDate:'',address:'',notes:'',phone:'',mainTask:'' });
     }
   }, [open, intern]);
 
@@ -383,6 +384,7 @@ export default function InternModal({ open, onClose, onSuccess, intern }: Intern
         gpa:form.gpa, internType:form.internType, workType:form.workType,
         hybridDays:form.workType==='Hibrit'?form.hybridDays:[],
         tcNo:form.tcNo, birthDate:form.birthDate, address:form.address, notes:form.notes,
+        mainTask:form.mainTask||undefined,
       };
 
       if (isEdit) {
@@ -608,11 +610,24 @@ export default function InternModal({ open, onClose, onSuccess, intern }: Intern
           )}
 
           {activeTab==='diger' && (
-            <div className="form-group">
-              <label className="form-label">Notlar</label>
-              <textarea className="form-textarea" rows={5} placeholder="Stajyer hakkında notlar..."
-                value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))}/>
-            </div>
+            <>
+              <div className="form-group">
+                {/* Ana Görev — Yönetici panelinin bu stajyer hakkında gördüğü
+                    TEK bilgi. Kayıt sırasında opsiyonel, sonradan Personel
+                    tarafından güncellenebilir (bu modal'ın düzenleme modu). */}
+                <label className="form-label">Ana Görev <span style={{ fontWeight:400, color:'var(--text-secondary)' }}>(opsiyonel)</span></label>
+                <input className="form-input" placeholder="Örn. Mobil uygulama arayüz geliştirme"
+                  value={form.mainTask} onChange={e=>setForm(f=>({...f,mainTask:e.target.value}))}/>
+                <small style={{ color:'var(--text-secondary)', fontSize:11 }}>
+                  Bu alan, Yönetici panelinde stajyer hakkında gösterilen özet bilgidir. Zorunlu değildir, sonradan da eklenebilir.
+                </small>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Notlar</label>
+                <textarea className="form-textarea" rows={5} placeholder="Stajyer hakkında notlar..."
+                  value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))}/>
+              </div>
+            </>
           )}
         </div>
 

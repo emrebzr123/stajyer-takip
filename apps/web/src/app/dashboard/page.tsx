@@ -193,7 +193,7 @@ export default function DashboardPage() {
                 {a.type === 'green' ? <Icon name="check" size={14} /> : a.type === 'red' ? <Icon name="alertCircle" size={14} /> : <Icon name="clock" size={14} />}
               </div>
               <div>
-                <div className="activity-text" dangerouslySetInnerHTML={{ __html: a.message }} />
+                <div className="activity-text"><strong>{a.taskTitle}</strong> görevi {a.statusText}.</div>
                 <div className="activity-time">{a.internName} · {timeAgo(a.createdAt)}</div>
               </div>
             </div>

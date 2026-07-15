@@ -52,8 +52,7 @@ export default function StajyerSidebar({ isOpen, onClose }: StajyerSidebarProps)
             style={{ width:56, height:56, borderRadius:8, objectFit:'cover', mixBlendMode:'multiply' }} />
         </div>
         <div style={{ display:'flex', flexDirection:'column', lineHeight:1.3 }}>
-          <span style={{ fontWeight:800, fontSize:13, letterSpacing:0.5, color:'var(--text-primary)' }}>ELECTROMTECH</span>
-          <span style={{ fontWeight:700, fontSize:12, color:'var(--text-primary)' }}>Stajyer Takip</span>
+          <span style={{ fontWeight:800, fontSize:13, letterSpacing:0.5, color:'var(--text-primary)' }}>Görev Takip</span>
           <span style={{ fontWeight:700, fontSize:12, color:'var(--text-primary)' }}>Sistemi</span>
         </div>
       </div>

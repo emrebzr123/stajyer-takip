@@ -34,6 +34,9 @@ export const authApi = {
   login: (email: string, password: string) =>
     api.post('/auth/login', { email, password }),
   me: () => api.get('/auth/me'),
+  forgotPassword: (email: string) => api.post('/auth/forgot-password', { email }),
+  resetPassword: (token: string, newPassword: string) =>
+    api.post('/auth/reset-password', { token, newPassword }),
 };
 
 // ─── Interns ───────────────────────────────────────────────────────────────────
@@ -202,4 +205,29 @@ export const adminTasksApi = {
   updateTask: (id: string, data: { title?: string; priority?: string; dueDate?: string; isCompleted?: boolean }) =>
     api.patch(`/admin-tasks/tasks/${id}`, data),
   removeTask: (id: string) => api.delete(`/admin-tasks/tasks/${id}`),
+};
+
+// "Yönetici → Personel" görev sistemi. Stajyer görev sisteminden ve
+// yukarıdaki kişisel "Görevlerim" panosundan TAMAMEN bağımsızdır — bu,
+// Yönetici'nin bir Personel'e (manager) doğrudan atadığı görevler için.
+// "Yönetici → Personel" görev bölümü sistemi — "Görevlerim" (admin-tasks)
+// ile birebir aynı yapı, sadece iki taraflı: Yönetici bölüm/görev
+// oluşturur-siler, Personel sadece görür ve tamamlandı işaretler.
+export const personnelTasksApi = {
+  // Yönetici — belirli bir personelin bölümlerini getirir
+  getBoardsFor: (assignedToId: string) => api.get('/personnel-tasks/boards', { params: { assignedToId } }),
+  // Personel — kendi bölümlerini getirir
+  getMyBoards: () => api.get('/personnel-tasks/boards/my'),
+  createBoard: (assignedToId: string, name: string, companyId?: string, color?: string) =>
+    api.post('/personnel-tasks/boards', { assignedToId, name, companyId, color }),
+  updateBoard: (id: string, data: { name?: string; color?: string; orderIndex?: number }) =>
+    api.patch(`/personnel-tasks/boards/${id}`, data),
+  removeBoard: (id: string) => api.delete(`/personnel-tasks/boards/${id}`),
+  removeBoards: (ids: string[]) => api.delete('/personnel-tasks/boards', { data: { ids } }),
+  clearCompleted: (boardId: string) => api.delete(`/personnel-tasks/boards/${boardId}/completed`),
+  createTask: (boardId: string, data: { title: string; priority?: string; dueDate?: string }) =>
+    api.post(`/personnel-tasks/boards/${boardId}/tasks`, data),
+  updateTask: (id: string, data: { title?: string; priority?: string; dueDate?: string; isCompleted?: boolean }) =>
+    api.patch(`/personnel-tasks/tasks/${id}`, data),
+  removeTask: (id: string) => api.delete(`/personnel-tasks/tasks/${id}`),
 };

@@ -13,6 +13,7 @@ if (!(globalThis as any).crypto) {
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { json } from 'express';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import { AppModule } from './app.module';
@@ -20,6 +21,12 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // NOT: Express'in varsayılan JSON gövde limiti sadece 100kb — mail eki
+  // (base64 kodlanmış dosya, ~%33 daha büyük) bunu kolayca aşar ve "413
+  // Payload Too Large" hatası verirdi. 15mb'a çıkarıldı (Brevo'nun kendi
+  // eki de ~10MB civarında sınırlıyor, bu yüzden makul bir tavan).
+  app.use(json({ limit: '15mb' }));
 
   // Global prefix
   app.setGlobalPrefix('api/v1');

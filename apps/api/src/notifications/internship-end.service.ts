@@ -70,12 +70,11 @@ export class InternshipEndService {
       .getMany();
     for (const intern of endingSoon) {
       const name = intern.user?.name || 'Stajyer';
-      const r = await this.notifications.notifyManagers({
+      const r = await this.notifications.notifyMentor(intern.id, {
         type: 'internship_ending',
         title: `🎓 ${name}'in stajı yakında bitiyor`,
         message: `${name} için Başarı Belgesini hazırlamayı unutmayın. Staj bitiş tarihi: ${new Date(intern.endDate).toLocaleDateString('tr-TR')}.`,
         link: '/dashboard/stajyerler',
-        alsoUserId: intern.mentorId,
         dedupeKey: `end-2d:${intern.id}:${intern.endDate}`,
       });
       reminders += r.length;
@@ -95,12 +94,11 @@ export class InternshipEndService {
       .getMany();
     for (const intern of endingNow) {
       const name = intern.user?.name || 'Stajyer';
-      const r = await this.notifications.notifyManagers({
+      const r = await this.notifications.notifyMentor(intern.id, {
         type: 'internship_ended',
         title: `🏁 ${name}'in stajı sona erdi`,
         message: `${name} için staj sonu değerlendirme anketini gönderebilirsiniz (stajyer detay ekranındaki "Değerlendirme Formu Gönder" butonu). Gönderilmezse yarın otomatik gönderilecek.`,
         link: '/dashboard/stajyerler',
-        alsoUserId: intern.mentorId,
         dedupeKey: `end-0d:${intern.id}:${intern.endDate}`,
       });
       endingToday += r.length;
@@ -126,12 +124,11 @@ export class InternshipEndService {
         await this.sendEvaluationFormTo(intern);
         autoSent++;
         const name = intern.user?.name || 'Stajyer';
-        await this.notifications.notifyManagers({
+        await this.notifications.notifyMentor(intern.id, {
           type: 'evaluation_sent',
           title: `📨 Değerlendirme formu otomatik gönderildi: ${name}`,
           message: `${name} adlı stajyerin stajı sona erdi; değerlendirme anketi e-posta adresine otomatik olarak gönderildi.`,
           link: '/dashboard/stajyerler',
-          alsoUserId: intern.mentorId,
           dedupeKey: `eval-auto:${intern.id}`,
         });
       } catch (err: any) {

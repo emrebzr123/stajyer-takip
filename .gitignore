@@ -1,3 +1,8 @@
+# ─── Yerel docker-compose testi için gerekli ama Railway'i kırdığı için ────
+# ASLA commit edilmemeli (Railway Nixpacks kullanıyor, Dockerfile görünce
+# otomatik ona geçip build'i kırıyor — bkz. "nest-cli.json bulunamadı" hatası)
+apps/api/Dockerfile
+
 # ─── Ortam değişkenleri (GİZLİ BİLGİLER — asla commit edilmemeli) ───────────
 .env
 .env.local

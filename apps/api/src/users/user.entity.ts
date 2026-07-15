@@ -24,6 +24,15 @@ export class UserEntity {
   @Column({ nullable: true })
   avatarUrl: string;
 
+  // Şifre sıfırlama akışı — "Şifremi Unuttum?" ile üretilen rastgele token
+  // ve son geçerlilik zamanı. select:false — normal sorgularda asla geri
+  // dönmez, sadece özel olarak seçildiğinde (auth akışında) erişilir.
+  @Column({ nullable: true, select: false })
+  passwordResetToken: string;
+
+  @Column({ type: 'timestamp', nullable: true, select: false })
+  passwordResetExpires: Date;
+
   @CreateDateColumn()
   createdAt: Date;
 

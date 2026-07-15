@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, LessThan, Repository } from 'typeorm';
 import { NotificationEntity } from './notification.entity';
 import { UserEntity } from '../users/user.entity';
+import { InternEntity } from '../interns/intern.entity';
 import { UserRole } from '../shared-types';
 import { PushService } from './push.service';
 
@@ -27,6 +28,8 @@ export class AppNotificationsService {
     private readonly repo: Repository<NotificationEntity>,
     @InjectRepository(UserEntity)
     private readonly usersRepo: Repository<UserEntity>,
+    @InjectRepository(InternEntity)
+    private readonly internsRepo: Repository<InternEntity>,
     private readonly push: PushService,
   ) {}
 
@@ -82,6 +85,34 @@ export class AppNotificationsService {
     });
     const ids = managers.map((m) => m.id);
     if (input.alsoUserId) ids.push(input.alsoUserId);
+    return this.createForUsers({ ...input, userIds: ids });
+  }
+
+  // Belirli bir STAJYERLE ilgili bir olay (görev tamamlandı, belge
+  // yüklendi, staj bitiyor vb.) olduğunda kullanılır. Yeni hiyerarşide
+  // (Yönetici → Personel → Stajyer) bu bildirim SADECE stajyerin mentörü
+  // olan Personel'e gider — Yönetici stajyer seviyesindeki hiçbir şeyi
+  // görmez (Yönetici sadece stajyerin "Ana Görev" özetiyle ilgilenir).
+  //
+  // Mentör atanmamışsa (güvenlik ağı), TÜM Personel'e (manager) gider —
+  // yine Yönetici'ye gitmez. Böylece hiçbir bildirim kimseye ulaşmadan
+  // kaybolmaz, ama Yönetici'nin gereksiz stajyer trafiğiyle boğulması da
+  // engellenmiş olur.
+  async notifyMentor(
+    internId: string,
+    input: Omit<CreateNotificationInput, 'userIds'>,
+  ) {
+    const intern = await this.internsRepo.findOne({ where: { id: internId }, select: ['id', 'mentorId'] });
+
+    let ids: string[] = [];
+    if (intern?.mentorId) {
+      ids = [intern.mentorId];
+    } else {
+      const managers = await this.usersRepo.find({ where: { role: UserRole.MANAGER }, select: ['id'] });
+      ids = managers.map((m) => m.id);
+    }
+
+    if (!ids.length) return [];
     return this.createForUsers({ ...input, userIds: ids });
   }
 

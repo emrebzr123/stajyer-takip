@@ -21,11 +21,13 @@ export class WeeklyPlansController {
   }
 
   @Get()
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   findAll(@Query('internId') internId?: string) {
     return this.weeklyPlansService.findAll(internId);
   }
 
   @Get(':id')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   findOne(@Param('id') id: string) {
     return this.weeklyPlansService.findById(id);
   }
