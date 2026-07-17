@@ -95,6 +95,21 @@ export class UsersService {
 
   async remove(id: string): Promise<{ message: string }> {
     const user = await this.findById(id);
+
+    // GÜVENLİK FRENİ: update()'teki "son admin düşürülemez" korumasıyla
+    // AYNI mantık, ama SİLME için. Bu kontrol olmadan, rol düşürmeye karşı
+    // koruma anlamsız kalırdı — biri sadece "Personel Yap" yerine direkt
+    // "Sil" kullanarak aynı kilitlenmeye (sistemde hiç admin kalmaması)
+    // yol açabilirdi.
+    if (user.role === 'admin') {
+      const adminCount = await this.usersRepo.count({ where: { role: 'admin' as any } });
+      if (adminCount <= 1) {
+        throw new BadRequestException(
+          'Sistemdeki son Yönetici (admin) hesabı silinemez — önce başka birini Yönetici yapın.',
+        );
+      }
+    }
+
     await this.usersRepo.remove(user);
     return { message: 'Kullanıcı silindi.' };
   }

@@ -163,7 +163,7 @@ export default function AyarlarPage() {
     setRoleChanging(m.id);
     try {
       await api.patch(`/users/${m.id}`, { role: newRole });
-      toast.success(`${m.name} artık ${newRole === 'admin' ? 'Admin' : 'Yönetici'}.`);
+      toast.success(`${m.name} artık ${newRole === 'admin' ? 'Yönetici' : 'Personel'}.`);
       await loadManagers();
     } catch (e: any) {
       const msg = e?.response?.data?.message;
@@ -191,7 +191,7 @@ export default function AyarlarPage() {
               <div style={{ fontWeight: 700, fontSize: 15 }}>{profile.name}</div>
               <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{profile.email}</div>
               <div style={{ fontSize: 11, color: 'var(--primary)', marginTop: 2 }}>
-                {user?.role === 'admin' ? 'Admin' : 'Yönetici'}
+                {user?.role === 'admin' ? 'Yönetici' : 'Personel'}
               </div>
             </div>
           </div>
@@ -237,7 +237,7 @@ export default function AyarlarPage() {
       {/* Yönetici tablosu */}
       <div className="card" style={{ marginTop: 24 }}>
         <div className="card-header">
-          <span className="card-title">Sistem Yöneticileri</span>
+          <span className="card-title">Sistem Kullanıcıları</span>
           <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{managers.length} yönetici</span>
         </div>
 
@@ -261,7 +261,7 @@ export default function AyarlarPage() {
                     </div>
                   </td>
                   <td>{m.email}</td>
-                  <td><span style={{ fontWeight: 600, color: m.role === 'admin' ? 'var(--primary)' : 'var(--text-secondary)', fontSize: 12 }}>{m.role === 'admin' ? 'Admin' : 'Yönetici'}</span></td>
+                  <td><span style={{ fontWeight: 600, color: m.role === 'admin' ? 'var(--primary)' : 'var(--text-secondary)', fontSize: 12 }}>{m.role === 'admin' ? 'Yönetici' : 'Personel'}</span></td>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       {/* Rol değiştirme — sadece giriş yapan admin ise görünür.
@@ -271,25 +271,25 @@ export default function AyarlarPage() {
                           <button
                             onClick={() => handleRoleChange(m, 'manager')}
                             disabled={roleChanging === m.id}
-                            title="Yönetici yap (admin yetkisini kaldır)"
+                            title="Personel yap (yönetici yetkisini kaldır)"
                             style={{
                               fontSize: 11, fontWeight: 600, padding: '4px 8px', borderRadius: 6,
                               border: '1px solid var(--border)', background: '#fff',
                               color: 'var(--text-secondary)', cursor: 'pointer',
                             }}>
-                            {roleChanging === m.id ? '…' : 'Yönetici Yap'}
+                            {roleChanging === m.id ? '…' : 'Personel Yap'}
                           </button>
                         ) : (
                           <button
                             onClick={() => handleRoleChange(m, 'admin')}
                             disabled={roleChanging === m.id}
-                            title="Admin yap (tüm yetkileri verir)"
+                            title="Yönetici yap (tüm yetkileri verir)"
                             style={{
                               fontSize: 11, fontWeight: 600, padding: '4px 8px', borderRadius: 6,
                               border: '1px solid var(--primary)', background: '#EFF6FF',
                               color: 'var(--primary)', cursor: 'pointer',
                             }}>
-                            {roleChanging === m.id ? '…' : 'Admin Yap'}
+                            {roleChanging === m.id ? '…' : 'Yönetici Yap'}
                           </button>
                         )
                       )}
@@ -319,7 +319,7 @@ export default function AyarlarPage() {
 
         {/* Yeni yönetici */}
         <div style={{ borderTop: '1px solid var(--border)', paddingTop: 20 }}>
-          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 14 }}>Yeni Yönetici Ekle</div>
+          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 14 }}>Yeni Personel Ekle</div>
           <div className="form-row">
             <div className="form-group">
               <label className="form-label">Ad Soyad *</label>

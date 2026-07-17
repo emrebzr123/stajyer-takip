@@ -117,7 +117,8 @@ export default function StajyerlerPage() {
                 <th>Firma</th>
                 <th>Üniversite</th>
                 <th>Bölüm</th>
-                <th>Dönem</th>
+                <th>Başlangıç</th>
+                <th>Bitiş</th>
                 <th>Durum</th>
                 <th>Çalışma</th>
                 <th>Mentör</th>
@@ -156,7 +157,8 @@ export default function StajyerlerPage() {
                     {intern.university || '—'}
                   </td>
                   <td style={{ fontSize: 12 }}>{intern.academicDepartment || intern.department?.name || '—'}</td>
-                  <td>{intern.term || '—'}</td>
+                  <td>{intern.startDate ? formatDate(intern.startDate) : '—'}</td>
+                  <td>{intern.endDate ? formatDate(intern.endDate) : '—'}</td>
                   <td><Badge text={intern.status} /></td>
                   <td>
                     {intern.workType ? (

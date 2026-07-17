@@ -38,11 +38,15 @@ export default function StajyerlerOzetPage() {
         <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-secondary)' }}>Yükleniyor…</div>
       ) : (
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          {/* Kayıt sayısı arttıkça tüm sayfayı uzatmak yerine, liste kendi
+              içinde kayıyor — başlık dahil (460px'den sonra). */}
+          <div style={{ maxHeight: 460, overflowY: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#F8FAFC' }}>
                 <th style={{ textAlign: 'left', padding: '12px 16px', fontSize: 12, color: 'var(--text-secondary)' }}>Stajyer</th>
                 <th style={{ textAlign: 'left', padding: '12px 16px', fontSize: 12, color: 'var(--text-secondary)' }}>Mentör (Personel)</th>
+                <th style={{ textAlign: 'left', padding: '12px 16px', fontSize: 12, color: 'var(--text-secondary)' }}>Çalışma Şekli</th>
                 <th style={{ textAlign: 'left', padding: '12px 16px', fontSize: 12, color: 'var(--text-secondary)' }}>Ana Görev</th>
               </tr>
             </thead>
@@ -55,15 +59,24 @@ export default function StajyerlerOzetPage() {
                   </td>
                   <td style={{ padding: '12px 16px', fontSize: 13 }}>{i.mentor?.name || <span style={{ color: '#CBD5E1' }}>Atanmamış</span>}</td>
                   <td style={{ padding: '12px 16px', fontSize: 13 }}>
+                    {i.workType || <span style={{ color: '#CBD5E1' }}>—</span>}
+                    {i.workType === 'Hibrit' && i.hybridDays?.length > 0 && (
+                      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
+                        {i.hybridDays.join(', ')}
+                      </div>
+                    )}
+                  </td>
+                  <td style={{ padding: '12px 16px', fontSize: 13 }}>
                     {i.mainTask ? i.mainTask : <span style={{ color: '#CBD5E1' }}>Girilmemiş</span>}
                   </td>
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={3} style={{ padding: 24, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13 }}>Stajyer bulunamadı.</td></tr>
+                <tr><td colSpan={4} style={{ padding: 24, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13 }}>Stajyer bulunamadı.</td></tr>
               )}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

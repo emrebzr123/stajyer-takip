@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import PageHeader from '@/components/layout/PageHeader';
 import Icon from '@/components/ui/Icon';
 import StatCard from '@/components/ui/StatCard';
-import { adminTasksApi, personnelTasksApi } from '@/lib/api';
+import { adminTasksApi, personnelTasksApi, companiesApi } from '@/lib/api';
 import toast from 'react-hot-toast';
 
 const PRIORITY_COLOR: Record<string, string> = {
@@ -16,6 +16,11 @@ const BOARDS_PER_PAGE = 4;
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' });
+}
+// Oluşturulma tarihi için — yıl dahil (Yönetici panelindeki Görevler
+// sayfasıyla aynı format).
+function fmtDateWithYear(iso: string) {
+  return new Date(iso).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 function isOverdue(t: any) {
   return !t.isCompleted && t.dueDate && t.dueDate < new Date().toISOString().slice(0, 10);
@@ -286,10 +291,25 @@ function ManagerBoardCard({ board, active, completed, onToggle }: {
       minWidth: 270, maxWidth: 270, flexShrink: 0, background: '#F8FAFC',
       borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', maxHeight: 400,
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
         <span style={{ width: 10, height: 10, borderRadius: '50%', background: board.color, flexShrink: 0 }} />
         <span style={{ fontWeight: 700, fontSize: 14, flex: 1, wordBreak: 'break-word' }}>{board.name}</span>
         <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600, flexShrink: 0 }}>{active.length}</span>
+      </div>
+      {/* Şirket rozeti (varsa) + oluşturulma tarihi — Yönetici panelindeki
+          Görevler sayfasıyla BİREBİR AYNI gösterim. */}
+      <div style={{ marginBottom: 10, marginLeft: 18, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+        {board.company && (
+          <span style={{
+            fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 8,
+            color: board.color, background: board.color + '18',
+          }}>
+            🏢 {board.company.name}
+          </span>
+        )}
+        <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>
+          📅 {fmtDateWithYear(board.createdAt)}
+        </span>
       </div>
       <div style={{ overflowY: 'auto', flex: 1 }}>
         {active.length === 0 ? (
@@ -349,6 +369,16 @@ export default function GorevlerimPage() {
   const [managerBoards, setManagerBoards] = useState<any[]>([]);
   const [managerBoardsLoading, setManagerBoardsLoading] = useState(true);
   const [managerBoardPage, setManagerBoardPage] = useState(0);
+
+  // Şirkete göre filtreleme — Yönetici panelindeki Görevler sayfasıyla
+  // AYNI mantık: "Tümü" + sistemde kayıtlı her şirket + "Görevler"
+  // (şirketi olmayan, Yönetici'nin "Görev Ekle" ile oluşturduğu kayıtlar).
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [companyFilter, setCompanyFilter] = useState<string>('all');
+
+  useEffect(() => {
+    companiesApi.getAll().then((r) => setCompanies(r.data || [])).catch(() => undefined);
+  }, []);
 
   const loadManagerBoards = () => {
     personnelTasksApi.getMyBoards()
@@ -433,14 +463,44 @@ export default function GorevlerimPage() {
           içindeki görevleri tamamlandı işaretleyebilirim. "Görevlerim"
           (kişisel panolar) ile BİREBİR AYNI görünüm — 4 bölüm/sayfa. */}
       {!managerBoardsLoading && managerBoards.length > 0 && (() => {
-        const totalMPages = Math.max(1, Math.ceil(managerBoards.length / BOARDS_PER_PAGE));
+        // Şirkete göre filtre uygulanmış liste — sayfalama bunun üzerinden.
+        const filteredMBoards = companyFilter === 'all'
+          ? managerBoards
+          : companyFilter === 'none'
+            ? managerBoards.filter((b: any) => !b.companyId)
+            : managerBoards.filter((b: any) => b.companyId === companyFilter);
+
+        const totalMPages = Math.max(1, Math.ceil(filteredMBoards.length / BOARDS_PER_PAGE));
         const safeMPage = Math.min(managerBoardPage, totalMPages - 1);
-        const pagedMBoards = managerBoards.slice(safeMPage * BOARDS_PER_PAGE, safeMPage * BOARDS_PER_PAGE + BOARDS_PER_PAGE);
+        const pagedMBoards = filteredMBoards.slice(safeMPage * BOARDS_PER_PAGE, safeMPage * BOARDS_PER_PAGE + BOARDS_PER_PAGE);
         return (
           <div style={{ marginBottom: 24 }}>
             <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
               🏢 Yöneticiden Gelen Projeler
             </div>
+            {/* Şirkete göre filtre sekmeleri — Yönetici panelindeki Görevler
+                sayfasıyla aynı: Tümü / [şirketler] / Görevler (şirketsiz). */}
+            {companies.length > 0 && (
+              <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
+                {[{ id: 'all', name: 'Tümü' }, ...companies, { id: 'none', name: 'Görevler' }].map((c) => {
+                  const isActive = companyFilter === c.id;
+                  return (
+                    <button key={c.id} onClick={() => { setCompanyFilter(c.id); setManagerBoardPage(0); }}
+                      style={{
+                        border: isActive ? '1.5px solid #1E3A5F' : '1px solid var(--border)',
+                        background: isActive ? '#1E3A5F0F' : '#fff',
+                        color: isActive ? '#1E3A5F' : 'var(--text-secondary)',
+                        borderRadius: 20, padding: '5px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                      }}>
+                      {c.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {filteredMBoards.length === 0 ? (
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', padding: '12px 0' }}>Bu filtreye uyan proje yok.</div>
+            ) : (
             <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
               {pagedMBoards.map((b: any) => {
                 const tasks: any[] = b.tasks || [];
@@ -451,6 +511,7 @@ export default function GorevlerimPage() {
                 );
               })}
             </div>
+            )}
             {totalMPages > 1 && (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 16 }}>
                 <button onClick={() => setManagerBoardPage((p) => Math.max(0, p - 1))} disabled={safeMPage === 0} className="page-btn" style={{ opacity: safeMPage === 0 ? 0.4 : 1 }}>
@@ -463,7 +524,7 @@ export default function GorevlerimPage() {
                   <Icon name="chevronRight" size={16} />
                 </button>
                 <span style={{ fontSize: 12, color: 'var(--text-secondary)', marginLeft: 8 }}>
-                  {managerBoards.length} bölümden {safeMPage * BOARDS_PER_PAGE + 1}-{Math.min((safeMPage + 1) * BOARDS_PER_PAGE, managerBoards.length)} arası gösteriliyor
+                  {filteredMBoards.length} bölümden {safeMPage * BOARDS_PER_PAGE + 1}-{Math.min((safeMPage + 1) * BOARDS_PER_PAGE, filteredMBoards.length)} arası gösteriliyor
                 </span>
               </div>
             )}

@@ -153,7 +153,12 @@ export class PersonnelTasksService {
           type: 'personnel_task_completed',
           title: `✅ Görev tamamlandı: ${saved.title}`,
           message: `"${task.board.name}" bölümündeki bir görev tamamlandı.`,
-          link: '/yonetici/dashboard/personel',
+          // NOT: Önceden '/yonetici/dashboard/personel' idi — o sayfa artık
+          // sadece personel yönetimi (ekle/sil/rol) yapıyor, proje/görev
+          // detayları "Görevler" sayfasına taşındı. Link güncellendi,
+          // ayrıca ilgili personel doğrudan seçili gelsin diye personelId
+          // de ekleniyor (bkz. Ana Sayfa'daki aynı desen).
+          link: `/yonetici/dashboard/gorevler?personelId=${task.board.assignedToId}`,
         })
         .catch(() => undefined);
     }

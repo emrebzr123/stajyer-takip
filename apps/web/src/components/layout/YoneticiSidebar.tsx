@@ -14,7 +14,9 @@ import { useAuthStore } from '@/store/auth.store';
 const NAV_ITEMS = [
   { path: '/yonetici/dashboard',          label: 'Ana Sayfa',   icon: 'home' },
   { path: '/yonetici/dashboard/personel', label: 'Personel',    icon: 'users' },
+  { path: '/yonetici/dashboard/gorevler', label: 'Görevler',    icon: 'clipboard' },
   { path: '/yonetici/dashboard/stajyerler', label: 'Stajyerler', icon: 'graduation' },
+  { path: '/yonetici/dashboard/devam',    label: 'Devam Takibi', icon: 'clock' },
   { path: '/yonetici/dashboard/sirketler', label: 'Şirketler',  icon: 'building' },
   { path: '/yonetici/dashboard/duyurular', label: 'Duyurular',  icon: 'bell' },
   { path: '/yonetici/dashboard/ayarlar',   label: 'Ayarlar',    icon: 'settings' },

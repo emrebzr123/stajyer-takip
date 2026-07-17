@@ -80,7 +80,11 @@ export default function LoginPage() {
       // Seçilen sekme ile hesabın GERÇEK rolü uyuşmuyorsa reddet — hangi
       // sekmeye tıklandığı sadece görsel bir tercih, yetkiyi HER ZAMAN
       // backend'den dönen gerçek rol belirler.
-      if (user.role !== activeRole) {
+      // İSTİSNA: Yönetici (admin) hesapları, hem "Yönetici" hem "Personel"
+      // sekmesinden giriş yapabilir — hangisini seçtiyse o panele düşer.
+      // Stajyer ve Personel hesapları için istisna yok, tam eşleşme şart.
+      const isAdminUsingManagerTab = user.role === 'admin' && activeRole === 'manager';
+      if (user.role !== activeRole && !isAdminUsingManagerTab) {
         const gercekRol = ROLE_META[user.role as Role]?.label || user.role;
         setError(`Bu hesap bir ${gercekRol} hesabı. Lütfen "${gercekRol}" sekmesini seçip tekrar deneyin.`);
         setLoading(false);
@@ -99,7 +103,13 @@ export default function LoginPage() {
         localStorage.removeItem('remembered_email');
       }
 
-      if (user.role === 'admin') {
+      // Yönlendirme, gerçek role DEĞİL seçilen sekmeye göre yapılıyor —
+      // böylece bir admin "Personel" sekmesinden girdiğinde gerçekten
+      // Personel paneline (/dashboard) düşüyor, "Yönetici" sekmesinden
+      // girdiğinde Yönetici paneline (/yonetici/dashboard).
+      if (isAdminUsingManagerTab) {
+        router.push('/dashboard');
+      } else if (user.role === 'admin') {
         router.push('/yonetici/dashboard');
       } else if (user.role === 'intern') {
         router.push('/stajyer/dashboard');
