@@ -173,6 +173,13 @@ export class TasksService {
     return this.findById(id);
   }
   async update(id: string, dto: UpdateTaskDto): Promise<any> {
+    // Bildirim için "önce" durumunu kaydediyoruz — sadece ANLAMLI alanlar
+    // (son tarih, öncelik, checklist İÇERİĞİ) değiştiyse stajyere bildirim
+    // gidecek; başlık/açıklama gibi kozmetik düzenlemelerde gitmeyecek,
+    // aksi halde her küçük düzeltmede gereksiz bildirim gürültüsü olurdu.
+    const before = await this.tasksRepo.findOne({ where: { id }, relations: ['subtasks'] });
+    const beforeSubtaskTitles = (before?.subtasks || []).map((s) => s.title.trim()).sort();
+
     const updateData: any = {};
     if (dto.title !== undefined) updateData.title = dto.title;
     if (dto.description !== undefined) updateData.description = dto.description;
@@ -195,9 +202,11 @@ export class TasksService {
     // güncellenmiyordu. Başlıkları konuma göre eşleştirip stajyerin mevcut
     // işaretleme durumunu (isCompleted) koruyoruz, sadece gerçekten
     // silinen/eklenen satırları değiştiriyoruz.
+    let afterSubtaskTitles = beforeSubtaskTitles;
     if (dto.subtasks !== undefined) {
       const titles = dto.subtasks.map((s) => s.title).filter((t) => t && t.trim());
       const synced = await this.subTasksService.syncForTask(id, titles);
+      afterSubtaskTitles = synced.map((s) => s.title.trim()).sort();
       const completed = synced.filter((s) => s.isCompleted).length;
       updateData.progress = synced.length ? Math.round((completed / synced.length) * 100) : (dto.progress ?? 0);
       if (dto.status === undefined) {
@@ -214,7 +223,38 @@ export class TasksService {
         .execute();
     }
 
-    return this.findById(id);
+    const full = await this.findById(id);
+
+    // Anlamlı değişiklik var mı — son tarih, öncelik ya da checklist
+    // İÇERİĞİ (madde eklendi/çıkarıldı/yeniden adlandırıldı; sadece bir
+    // maddenin işaretlenmesi/kaldırılması BU listede değişiklik yaratmaz,
+    // çünkü o zaten stajyerin kendi eylemi).
+    const dueDateChanged = dto.dueDate !== undefined
+      && before?.dueDate
+      && new Date(before.dueDate).toISOString().split('T')[0] !== new Date(dto.dueDate).toISOString().split('T')[0];
+    const priorityChanged = dto.priority !== undefined && before?.priority !== dto.priority;
+    const subtasksChanged = JSON.stringify(beforeSubtaskTitles) !== JSON.stringify(afterSubtaskTitles);
+    const meaningfulChange = dueDateChanged || priorityChanged || subtasksChanged;
+
+    const intern = full.intern as any;
+    const internUserId = intern?.userId || intern?.user?.id;
+    if (meaningfulChange && internUserId) {
+      const parts: string[] = [];
+      if (dueDateChanged) parts.push(`son tarih ${new Date(full.dueDate).toLocaleDateString('tr-TR')} olarak güncellendi`);
+      if (priorityChanged) parts.push(`öncelik "${full.priority}" olarak değişti`);
+      if (subtasksChanged) parts.push('görev listesi güncellendi');
+      this.notifications
+        .createForUsers({
+          userIds: [internUserId],
+          type: 'task_updated',
+          title: `📝 Görev güncellendi: ${full.title}`,
+          message: parts.join(', ') + '.',
+          link: '/stajyer/dashboard/gorevler',
+        })
+        .catch(() => undefined);
+    }
+
+    return full;
   }
 
   // requesterInternId verildiğinde (stajyer isteği), görev o stajyere ait

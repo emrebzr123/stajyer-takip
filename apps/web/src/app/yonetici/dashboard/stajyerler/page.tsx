@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import PageHeader from '@/components/layout/PageHeader';
 import Icon from '@/components/ui/Icon';
 import api from '@/lib/api';
+import { formatDate } from '@/lib/utils';
 
 // Yönetici'nin stajyerler hakkında gördüğü TEK sayfa — ve TEK bilgi:
 // "Ana Görev". Günlük görev/bildirim trafiği (İş Takip Listesi, Haftalık
@@ -46,6 +47,8 @@ export default function StajyerlerOzetPage() {
               <tr style={{ background: '#F8FAFC' }}>
                 <th style={{ textAlign: 'left', padding: '12px 16px', fontSize: 12, color: 'var(--text-secondary)' }}>Stajyer</th>
                 <th style={{ textAlign: 'left', padding: '12px 16px', fontSize: 12, color: 'var(--text-secondary)' }}>Mentör (Personel)</th>
+                <th style={{ textAlign: 'left', padding: '12px 16px', fontSize: 12, color: 'var(--text-secondary)' }}>Başlangıç</th>
+                <th style={{ textAlign: 'left', padding: '12px 16px', fontSize: 12, color: 'var(--text-secondary)' }}>Bitiş</th>
                 <th style={{ textAlign: 'left', padding: '12px 16px', fontSize: 12, color: 'var(--text-secondary)' }}>Çalışma Şekli</th>
                 <th style={{ textAlign: 'left', padding: '12px 16px', fontSize: 12, color: 'var(--text-secondary)' }}>Ana Görev</th>
               </tr>
@@ -58,6 +61,8 @@ export default function StajyerlerOzetPage() {
                     <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{i.department?.name || '—'}</div>
                   </td>
                   <td style={{ padding: '12px 16px', fontSize: 13 }}>{i.mentor?.name || <span style={{ color: '#CBD5E1' }}>Atanmamış</span>}</td>
+                  <td style={{ padding: '12px 16px', fontSize: 13 }}>{i.startDate ? formatDate(i.startDate) : '—'}</td>
+                  <td style={{ padding: '12px 16px', fontSize: 13 }}>{i.endDate ? formatDate(i.endDate) : '—'}</td>
                   <td style={{ padding: '12px 16px', fontSize: 13 }}>
                     {i.workType || <span style={{ color: '#CBD5E1' }}>—</span>}
                     {i.workType === 'Hibrit' && i.hybridDays?.length > 0 && (
@@ -72,7 +77,7 @@ export default function StajyerlerOzetPage() {
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={4} style={{ padding: 24, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13 }}>Stajyer bulunamadı.</td></tr>
+                <tr><td colSpan={6} style={{ padding: 24, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13 }}>Stajyer bulunamadı.</td></tr>
               )}
             </tbody>
           </table>

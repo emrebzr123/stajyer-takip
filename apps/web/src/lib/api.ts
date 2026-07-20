@@ -183,7 +183,6 @@ export const subtasksApi = {
 export const attendanceApi = {
   checkIn:      () => api.post('/attendance/check-in'),
   checkOut:     () => api.post('/attendance/check-out'),
-  todayStatus:  () => api.get('/attendance/today'),
   history:      (internId?: string) => api.get('/attendance/history', { params: internId ? { internId } : {} }),
   // Şirket geneli devam görünümü (yönetici) — "bugün kim ofiste, kim değil".
   overview:     (date?: string) => api.get('/attendance/overview', { params: date ? { date } : {} }),

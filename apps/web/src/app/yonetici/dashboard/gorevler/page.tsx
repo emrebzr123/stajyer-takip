@@ -255,15 +255,21 @@ function BoardColumn({ board, onChanged, selected, onToggleSelect }: {
 }
 
 // ─── Görev bölümleri paneli (seçili personel için) ──────────────────────────
-function PersonelBoardsPanel({ personelId, personelName }: { personelId: string; personelName: string }) {
+// PersonelBoardsPanel — artık SADECE gösterim (filtre + board listesi +
+// sayfalama + toplu silme). Proje/Görev EKLEME işlemi buradan kaldırıldı,
+// üst seviyedeki (sayfa geneli) "+ Proje Ekle"/"+ Görev Ekle" butonları ve
+// AddBoardModal üzerinden yapılıyor — çünkü artık önce bir personel
+// seçmeye gerek yok, TÜM personelin bölümleri varsayılan olarak
+// listeleniyor.
+function PersonelBoardsPanel({ personelId, personelName, onBoardCountKnown }: {
+  personelId: string; personelName: string;
+  // Üst seviyeye (GorevlerPageInner) kaç projesi/görevi olduğunu bildirir
+  // — TÜM personelin toplamı 0 ise "henüz hiç proje yok" mesajı göstermek
+  // için kullanılıyor.
+  onBoardCountKnown?: (count: number) => void;
+}) {
   const [boards, setBoards] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  // '' = kapalı, 'proje' = şirket seçicili form, 'bolum' = sade/hızlı form
-  // (şirket seçimi hiç gösterilmez, companyId hep boş gider).
-  const [addingBoard, setAddingBoard] = useState<'' | 'proje' | 'bolum'>('');
-  const [newBoardName, setNewBoardName] = useState('');
-  const [newBoardCompanyId, setNewBoardCompanyId] = useState('');
-  const [savingBoard, setSavingBoard] = useState(false);
   const [boardPage, setBoardPage] = useState(0);
   const [selectedBoardIds, setSelectedBoardIds] = useState<Set<string>>(new Set());
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
@@ -280,7 +286,11 @@ function PersonelBoardsPanel({ personelId, personelName }: { personelId: string;
 
   const load = () => {
     personnelTasksApi.getBoardsFor(personelId)
-      .then((r) => setBoards(r.data || []))
+      .then((r) => {
+        const data = r.data || [];
+        setBoards(data);
+        onBoardCountKnown?.(data.length);
+      })
       .catch(() => toast.error('Projeler yüklenemedi.'))
       .finally(() => setLoading(false));
   };
@@ -293,23 +303,6 @@ function PersonelBoardsPanel({ personelId, personelName }: { personelId: string;
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [personelId]);
-
-  const handleCreateBoard = async () => {
-    if (!newBoardName.trim()) return;
-    // "Proje Ekle" modunda şirket seçimi ZORUNLU — "Görev Ekle" modunda ise
-    // (addingBoard === 'bolum') hiç sorulmuyor bile, zaten şirketsiz gider.
-    if (addingBoard === 'proje' && !newBoardCompanyId) {
-      toast.error('Proje için bir şirket seçmelisiniz.');
-      return;
-    }
-    setSavingBoard(true);
-    try {
-      await personnelTasksApi.createBoard(personelId, newBoardName.trim(), newBoardCompanyId || undefined);
-      setNewBoardName(''); setNewBoardCompanyId(''); setAddingBoard('');
-      load();
-    } catch { toast.error('Proje oluşturulamadı.'); }
-    finally { setSavingBoard(false); }
-  };
 
   const toggleSelectBoard = (id: string) => {
     setSelectedBoardIds((prev) => {
@@ -338,48 +331,14 @@ function PersonelBoardsPanel({ personelId, personelName }: { personelId: string;
   const safePage = Math.min(boardPage, totalPages - 1);
   const pagedBoards = filteredBoards.slice(safePage * BOARDS_PER_PAGE, safePage * BOARDS_PER_PAGE + BOARDS_PER_PAGE);
 
+  // Hiç projesi/görevi olmayan bir personel için tüm bölümü gizle — boş
+  // kartlarla sayfayı doldurmayalım.
+  if (!loading && boards.length === 0) return null;
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
         <div style={{ fontWeight: 700, fontSize: 15 }}>{personelName} — Projeler ve Görevler</div>
-        {addingBoard ? (
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <input autoFocus value={newBoardName} onChange={(e) => setNewBoardName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleCreateBoard()}
-              placeholder={addingBoard === 'bolum' ? 'Görev adı…' : 'Proje adı…'}
-              style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', fontSize: 13, minWidth: 220 }} />
-            {/* Sadece "Proje Ekle" modunda şirket seçici gösterilir — "Görev
-                Ekle" bilerek şirket bağımlılığı olmadan, hızlıca düz bir
-                görev grubu oluşturmak için var. */}
-            {addingBoard === 'proje' && (
-              <select value={newBoardCompanyId} onChange={(e) => setNewBoardCompanyId(e.target.value)}
-                style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', fontSize: 13 }}>
-                <option value="">Şirket seçin…</option>
-                {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            )}
-            {addingBoard === 'proje' && companies.length === 0 && (
-              <span style={{ fontSize: 11, color: 'var(--text-secondary)', alignSelf: 'center' }}>
-                Hiç şirket yok — önce <Link href="/yonetici/dashboard/sirketler" style={{ color: '#1E3A5F', fontWeight: 700 }}>Şirketler</Link> sayfasından ekleyin.
-              </span>
-            )}
-            <button onClick={handleCreateBoard} disabled={savingBoard || !newBoardName.trim() || (addingBoard === 'proje' && !newBoardCompanyId)} style={{ border: 'none', background: '#1E3A5F', color: '#fff', borderRadius: 8, padding: '0 16px', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-              {savingBoard ? '…' : 'Oluştur'}
-            </button>
-            <button onClick={() => { setAddingBoard(''); setNewBoardName(''); setNewBoardCompanyId(''); }} style={{ border: 'none', background: '#F1F5F9', borderRadius: 8, padding: '0 14px', fontSize: 13, cursor: 'pointer' }}>Vazgeç</button>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => setAddingBoard('proje')} style={{ display: 'flex', alignItems: 'center', gap: 6, border: 'none', background: '#1E3A5F', color: '#fff', borderRadius: 8, padding: '9px 14px', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-              <Icon name="plus" size={15} /> Proje Ekle
-            </button>
-            {/* Şirket gibi bağımlılıkları olmadan hızlıca düz bir görev
-                grubu oluşturmak için — arka planda AYNI "proje" (board)
-                yapısını kullanır, sadece şirket seçimi hiç sorulmaz. */}
-            <button onClick={() => setAddingBoard('bolum')} style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1px solid #1E3A5F', background: '#fff', color: '#1E3A5F', borderRadius: 8, padding: '9px 14px', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-              <Icon name="plus" size={15} /> Görev Ekle
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Şirkete göre filtre sekmeleri — sistemde en az 1 şirket TANIMLIYSA
@@ -429,14 +388,6 @@ function PersonelBoardsPanel({ personelId, personelName }: { personelId: string;
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>Yükleniyor…</div>
-      ) : boards.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: 40 }}>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>🗂️</div>
-          <div style={{ fontWeight: 700, marginBottom: 4 }}>Henüz proje yok</div>
-          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-            "Proje Ekle" ile {personelName} için ilk projeyi oluşturun.
-          </div>
-        </div>
       ) : filteredBoards.length === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: 40 }}>
           <div style={{ fontSize: 32, marginBottom: 8 }}>🔍</div>
@@ -474,29 +425,151 @@ function PersonelBoardsPanel({ personelId, personelName }: { personelId: string;
   );
 }
 
-// ─── Sayfa ───────────────────────────────────────────────────────────────────
+// ─── Proje/Görev ekleme modalı ──────────────────────────────────────────────
+// Artık önce bir personel seçmeye gerek yok — "+ Proje Ekle" / "+ Görev
+// Ekle" her zaman görünür, tıklanınca bu modal açılır ve personel seçimi
+// (proje adı + [firma] ile birlikte) BURADA yapılır.
+function AddBoardModal({ mode, personelList, onClose, onCreated }: {
+  mode: 'proje' | 'bolum'; personelList: any[]; onClose: () => void; onCreated: () => void;
+}) {
+  const [name, setName] = useState('');
+  const [personelId, setPersonelId] = useState('');
+  const [companyId, setCompanyId] = useState('');
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [saving, setSaving] = useState(false);
+  const isProje = mode === 'proje';
 
-// ─── Sayfa: Görevler (personel seç → projelerini yönet) ────────────────────
+  useEffect(() => {
+    if (isProje) companiesApi.getAll().then((r) => setCompanies(r.data || [])).catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSubmit = async () => {
+    if (!name.trim()) { toast.error(isProje ? 'Proje adı girin.' : 'Görev adı girin.'); return; }
+    if (!personelId) { toast.error('Bir personel seçmelisiniz.'); return; }
+    if (isProje && !companyId) { toast.error('Proje için bir şirket seçmelisiniz.'); return; }
+    setSaving(true);
+    try {
+      await personnelTasksApi.createBoard(personelId, name.trim(), isProje ? companyId : undefined);
+      toast.success(isProje ? 'Proje oluşturuldu.' : 'Görev oluşturuldu.');
+      onCreated();
+      onClose();
+    } catch { toast.error('Oluşturulamadı.'); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal" style={{ maxWidth: 420 }}>
+        <div className="modal-header">
+          <span className="modal-title">{isProje ? '+ Proje Ekle' : '+ Görev Ekle'}</span>
+          <button className="action-btn" onClick={onClose}><Icon name="x" size={18} /></button>
+        </div>
+        <div className="modal-body">
+          <div className="form-group">
+            <label className="form-label">{isProje ? 'Proje Adı' : 'Görev Adı'}</label>
+            <input autoFocus className="form-input" value={name} onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+              placeholder={isProje ? 'Proje adı…' : 'Görev adı…'} />
+          </div>
+          {/* Sadece Proje Ekle'de şirket sorulur — Görev Ekle bilerek şirket
+              bağımlılığı olmadan, hızlıca düz bir görev grubu oluşturmak için. */}
+          {isProje && (
+            <div className="form-group">
+              <label className="form-label">Firma</label>
+              <select className="form-select" value={companyId} onChange={(e) => setCompanyId(e.target.value)}>
+                <option value="">Şirket seçin…</option>
+                {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              {companies.length === 0 && (
+                <small style={{ color: 'var(--text-secondary)', fontSize: 11, display: 'block', marginTop: 6 }}>
+                  Hiç şirket yok — önce <Link href="/yonetici/dashboard/sirketler" style={{ color: '#1E3A5F', fontWeight: 700 }}>Şirketler</Link> sayfasından ekleyin.
+                </small>
+              )}
+            </div>
+          )}
+          <div className="form-group">
+            <label className="form-label">Personel</label>
+            <select className="form-select" value={personelId} onChange={(e) => setPersonelId(e.target.value)}>
+              <option value="">Personel seçin…</option>
+              {personelList.map((p) => (
+                <option key={p.id} value={p.id}>{p.name} ({p.role === 'admin' ? 'Yönetici' : 'Personel'})</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn-secondary" onClick={onClose}>İptal</button>
+          <button className="btn-primary" onClick={handleSubmit} disabled={saving}>
+            {saving ? '…' : 'Oluştur'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Sayfa: Görevler ─────────────────────────────────────────────────────────
+// Artık önce bir personel seçmeye GEREK YOK — sayfa açılır açılmaz TÜM
+// personelin projeleri/görevleri aşağıda listelenir (projesi/görevi
+// olmayanlar otomatik gizlenir). "+ Proje Ekle"/"+ Görev Ekle" her zaman
+// görünür, personel seçimi tıklanınca açılan modalde yapılır.
 function GorevlerPageInner() {
   const searchParams = useSearchParams();
   const preselectedId = searchParams.get('personelId');
 
   const [personel, setPersonel] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedId, setSelectedId] = useState<string | null>(preselectedId);
+  const [modalMode, setModalMode] = useState<'' | 'proje' | 'bolum'>('');
+  // Modalden yeni bir proje/görev oluşturulunca, hangi personelin
+  // listesinin etkilendiğini bilmediğimiz için (modal içinde ayrıca
+  // seçiliyor), TÜM panelleri bu key ile yeniden mount ediyoruz.
+  const [refreshKey, setRefreshKey] = useState(0);
+  // Her personelin kaç projesi/görevi olduğu — hepsi 0 ise (ya da henüz
+  // bilinmiyorsa) "henüz hiç proje yok" mesajını doğru göstermek için.
+  const [boardCounts, setBoardCounts] = useState<Record<string, number>>({});
 
-  useEffect(() => {
+  const loadPersonel = () => {
     api.get('/users')
       .then((r) => setPersonel((r.data || []).filter((u: any) => u.role === 'manager' || u.role === 'admin')))
       .catch(() => toast.error('Personel listesi yüklenemedi.'))
       .finally(() => setLoading(false));
-  }, []);
+  };
 
-  const selected = personel.find((p) => p.id === selectedId);
+  useEffect(() => { loadPersonel(); }, []);
+
+  // Ana Sayfa'dan bir personel seçili gelindiyse (Personel widget'ından
+  // tıklanınca), o personelin bölümüne otomatik kaydır.
+  useEffect(() => {
+    if (!loading && preselectedId) {
+      const t = setTimeout(() => {
+        document.getElementById(`personel-boards-${preselectedId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 300);
+      return () => clearTimeout(t);
+    }
+  }, [loading, preselectedId]);
 
   return (
     <div>
-      <PageHeader title="Görevler" subtitle="Bir personel seçin, ona proje/görev atayın." />
+      <PageHeader title="Görevler" subtitle="Personele proje/görev atayın — tüm atanmış işler aşağıda listelenir." />
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 28 }}>
+        <button onClick={() => setModalMode('proje')} style={{ display: 'flex', alignItems: 'center', gap: 6, border: 'none', background: '#1E3A5F', color: '#fff', borderRadius: 8, padding: '10px 16px', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+          <Icon name="plus" size={15} /> Proje Ekle
+        </button>
+        <button onClick={() => setModalMode('bolum')} style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1px solid #1E3A5F', background: '#fff', color: '#1E3A5F', borderRadius: 8, padding: '10px 16px', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+          <Icon name="plus" size={15} /> Görev Ekle
+        </button>
+      </div>
+
+      {modalMode && (
+        <AddBoardModal
+          mode={modalMode}
+          personelList={personel}
+          onClose={() => setModalMode('')}
+          onCreated={() => setRefreshKey((k) => k + 1)}
+        />
+      )}
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-secondary)' }}>Yükleniyor…</div>
@@ -509,28 +582,27 @@ function GorevlerPageInner() {
           </div>
         </div>
       ) : (
-        <>
-          {/* Personel seçici — dropdown, tam liste değil (o Personel
-              sayfasında). Sadece "kime görev atayacağım" seçimi burada. */}
-          <div style={{ marginBottom: 20, maxWidth: 360 }}>
-            <label className="form-label" style={{ display: 'block', marginBottom: 6 }}>Personel Seçin</label>
-            <select value={selectedId || ''} onChange={(e) => setSelectedId(e.target.value || null)}
-              style={{ width: '100%', border: '1px solid var(--border)', borderRadius: 8, padding: '9px 12px', fontSize: 13 }}>
-              <option value="">— Seçin —</option>
-              {personel.map((p) => (
-                <option key={p.id} value={p.id}>{p.name} ({p.role === 'admin' ? 'Yönetici' : 'Personel'})</option>
-              ))}
-            </select>
-          </div>
-
-          {selected ? (
-            <PersonelBoardsPanel key={selected.id} personelId={selected.id} personelName={selected.name} />
-          ) : (
-            <div style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13, padding: '30px 0' }}>
-              Proje/görev atamak için yukarıdan bir personel seçin.
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+          {/* NOT: Bu mesaj, aşağıdaki panelleri GİZLEMİYOR — sadece üstüne
+              ekleniyor. Panelleri render etmeyi bırakırsak onBoardCountKnown
+              bir daha hiç çağrılmaz ve bu mesaj yeni bir proje eklense bile
+              sonsuza dek takılı kalırdı. */}
+          {Object.keys(boardCounts).length === personel.length && Object.values(boardCounts).every((c) => c === 0) && (
+            <div className="card" style={{ textAlign: 'center', padding: 40 }}>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>🗂️</div>
+              <div style={{ fontWeight: 700, marginBottom: 4 }}>Henüz hiç proje/görev yok</div>
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                Yukarıdaki "Proje Ekle" ya da "Görev Ekle" ile ilk kaydı oluşturun.
+              </div>
             </div>
           )}
-        </>
+          {personel.map((p) => (
+            <div key={p.id} id={`personel-boards-${p.id}`}>
+              <PersonelBoardsPanel key={`${p.id}-${refreshKey}`} personelId={p.id} personelName={p.name}
+                onBoardCountKnown={(count) => setBoardCounts((prev) => ({ ...prev, [p.id]: count }))} />
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

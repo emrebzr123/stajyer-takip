@@ -7,8 +7,9 @@ import Avatar from '@/components/ui/Avatar';
 import ProgressBar from '@/components/ui/ProgressBar';
 import Icon from '@/components/ui/Icon';
 import DonutChart from '@/components/charts/DonutChart';
-import { tasksApi, internsApi } from '@/lib/api';
+import { tasksApi, internsApi, attendanceApi } from '@/lib/api';
 import { formatDate, timeAgo } from '@/lib/utils';
+import WeeklyOfficeWidget, { getWeekDates } from '@/components/widgets/WeeklyOfficeWidget';
 
 export default function DashboardPage() {
   const [dashStats, setDashStats]       = useState<any>(null);
@@ -21,6 +22,14 @@ export default function DashboardPage() {
   const [deadlines, setDeadlines]       = useState<any[]>([]);
   const [deptDist, setDeptDist]         = useState<any[]>([]);
   const [loading, setLoading]           = useState(true);
+  // Haftalık Ofis Takvimi widget'ı için — tüm stajyerlerin workType/
+  // hybridDays bilgisiyle birlikte tam listesi.
+  const [allInterns, setAllInterns]     = useState<any[]>([]);
+  // Bugünkü GERÇEK giriş/çıkış durumu — Haftalık Ofis Takvimi'nde "Bugün"
+  // sütununda canlı durum göstergesi için.
+  // Haftanın her günü için GERÇEK Devam Takibi durumu — Haftalık Ofis
+  // Takvimi'nde Ana Görev yerine bunun gösterilmesi istendiği için.
+  const [weekStatus, setWeekStatus] = useState<Record<string, Record<string, 'office' | 'left' | 'absent'>>>({});
 
   useEffect(() => {
     Promise.all([
@@ -38,7 +47,8 @@ export default function DashboardPage() {
       internsApi.getDeptDistribution(),
       internsApi.getStats(),
       tasksApi.getAll({ limit: 500 }),
-    ]).then(([stats, dist, prog, acts, dead, dept, iStats, tasksRes]) => {
+      internsApi.getAll({ limit: 500 }),
+    ]).then(([stats, dist, prog, acts, dead, dept, iStats, tasksRes, internsRes]) => {
       setDashStats(stats.data);
       setStatusDist(dist.data);
       setInternProg(prog.data);
@@ -47,7 +57,26 @@ export default function DashboardPage() {
       setDeptDist(dept.data);
       setInternStats(iStats.data);
       setAllTasks(tasksRes.data?.data || []);
+      setAllInterns(internsRes.data?.data || []);
     }).finally(() => setLoading(false));
+
+    // Bugünkü gerçek giriş/çıkış durumu — ayrı bir çağrı (bulunmazsa/hata
+    // verirse ana yükleme akışını etkilemesin diye).
+    // Haftanın her günü için gerçek giriş/çıkış durumu — Haftalık Ofis
+    // Takvimi'nde Ana Görev yerine bu gösteriliyor.
+    const weekDates = getWeekDates();
+    Promise.all(
+      Object.entries(weekDates).map(([day, dateStr]) =>
+        attendanceApi.overview(dateStr).then((r) => ({ day, rows: r.data?.rows || [] })).catch(() => ({ day, rows: [] })),
+      ),
+    ).then((results) => {
+      const map: Record<string, Record<string, 'office' | 'left' | 'absent'>> = {};
+      results.forEach(({ day, rows }) => {
+        map[day] = {};
+        rows.forEach((row: any) => { map[day][row.internId] = row.status; });
+      });
+      setWeekStatus(map);
+    });
   }, []);
 
   // "Tümü ▾" önceden sadece süs bir <span>'dı — hiçbir işlevi yoktu. Artık
@@ -112,6 +141,15 @@ export default function DashboardPage() {
       <div className="stats-row stats-row-6">
         {STAT_CARDS.map((s) => <StatCard key={s.label} {...s} />)}
       </div>
+
+      {/* Haftalık Ofis Takvimi — hangi stajyer hangi gün geliyor. "Devam
+          Takibi"nden farklı: gerçek giriş/çıkış kaydı değil, planlanan
+          çalışma şeklinden (Tam Zamanlı/Hibrit) hesaplanan bir program. */}
+      {allInterns.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <WeeklyOfficeWidget interns={allInterns} weekStatus={weekStatus} />
+        </div>
+      )}
 
       <div className="grid-3">
         <div className="card">
