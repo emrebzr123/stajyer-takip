@@ -196,14 +196,18 @@ export default function HaftalikPlanPage() {
           </div>
         </div>
 
-        <div className="table-wrap">
+        {/* NOT: Global .table-wrap class'ı 8 farklı sayfada kullanılıyor,
+            ona dokunmadık (başka sayfaları etkilemesin diye). Bu tabloya
+            özel dikey kaydırma sınırı SADECE burada, inline stil ile
+            ekleniyor — yatay kaydırma zaten class'tan geliyor. */}
+        <div className="table-wrap" style={{ maxHeight: 600, overflowY: 'auto' }}>
           <table>
             <thead>
               <tr>
-                <th>Kişi</th>
-                <th>Bölüm</th>
+                <th style={{ position: 'sticky', top: 0, zIndex: 2 }}>Kişi</th>
+                <th style={{ position: 'sticky', top: 0, zIndex: 2 }}>Bölüm</th>
                 {calendarWeeks.map((w, i) => (
-                  <th key={i} style={{ minWidth: 140, background: w.isCurrent ? '#EFF6FF' : undefined }}>
+                  <th key={i} style={{ minWidth: 140, background: w.isCurrent ? '#EFF6FF' : undefined, position: 'sticky', top: 0, zIndex: 2 }}>
                     <div style={{ fontWeight: 600, color: w.isCurrent ? 'var(--primary)' : undefined }}>
                       {w.isCurrent ? '📍 Bu Hafta' : w.display}
                     </div>
@@ -212,7 +216,7 @@ export default function HaftalikPlanPage() {
                     )}
                   </th>
                 ))}
-                <th>Genel İlerleme</th>
+                <th style={{ position: 'sticky', top: 0, zIndex: 2 }}>Genel İlerleme</th>
               </tr>
             </thead>
             <tbody>

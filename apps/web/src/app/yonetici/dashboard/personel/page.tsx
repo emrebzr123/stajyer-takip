@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import PageHeader from '@/components/layout/PageHeader';
 import Icon from '@/components/ui/Icon';
-import api from '@/lib/api';
+import api, { personnelTasksApi } from '@/lib/api';
 import toast from 'react-hot-toast';
 
 // NOT: Bu sayfa önceden hem personel yönetimini HEM proje/görev atamayı
@@ -17,6 +17,11 @@ export default function PersonelPage() {
   const [savingP, setSavingP] = useState(false);
   const [roleChanging, setRoleChanging] = useState<string | null>(null);
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
+  // Silme onayı gösterilirken, bu personelin kaç projesi/görevi olduğunu
+  // (o kişi silinince CASCADE ile hepsinin de gideceğini) gösterip
+  // yanlışlıkla veri kaybını önlemek için.
+  const [deleteBoardCount, setDeleteBoardCount] = useState<number | null>(null);
+  const [checkingDeleteImpact, setCheckingDeleteImpact] = useState(false);
 
   // Düzenleme — isim/e-posta yanlış girildiyse düzeltmek için. Backend'deki
   // PATCH /users/:id zaten bu alanları destekliyor, sadece arayüz eksikti.
@@ -113,9 +118,33 @@ export default function PersonelPage() {
       await api.delete(`/users/${id}`);
       toast.success('Personel silindi.');
       setConfirmDel(null);
+      setDeleteBoardCount(null);
       loadPersonel();
     } catch (e: any) {
       toast.error(e?.response?.data?.message || 'Silinemedi.');
+    }
+  };
+
+  // "Sil" tıklanınca, onay kutusunu göstermeden ÖNCE o personelin kaç
+  // projesi/görevi olduğunu çekiyoruz — bir Personel silindiğinde ona ait
+  // TÜM projeler/görevler de (veritabanı seviyesinde CASCADE ile) otomatik
+  // siliniyor, kullanıcı bunu bilmeden onaylamasın diye.
+  const handleDeleteClick = async (id: string) => {
+    setConfirmDel(id);
+    setDeleteBoardCount(null);
+    setCheckingDeleteImpact(true);
+    try {
+      // NOT: getBoardsFor() yerine BİLEREK bu ayrı uç kullanılıyor —
+      // getBoardsFor() bu Yönetici'nin GÖRÜNÜRLÜK kısıtlamasına göre
+      // filtrelenmiş sonuç döner (başka bir Yönetici'nin bu isteği yapan
+      // kişiden gizlediği bir proje varsa sayılmaz), ama silme geri
+      // alınamaz olduğu için burada GERÇEK (tam) sayı gösterilmeli.
+      const r = await personnelTasksApi.countBoardsForDeletionWarning(id);
+      setDeleteBoardCount(r.data?.count ?? null);
+    } catch {
+      setDeleteBoardCount(null);
+    } finally {
+      setCheckingDeleteImpact(false);
     }
   };
 
@@ -204,26 +233,39 @@ export default function PersonelPage() {
                         </button>
                       </div>
                     ) : (
-                      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                      <div style={{ display: 'flex', flexDirection: confirmDel === p.id ? 'column' : 'row', alignItems: confirmDel === p.id ? 'flex-end' : 'center', gap: 6, justifyContent: 'flex-end' }}>
+                        {confirmDel === p.id && (
+                          <div style={{ fontSize: 10, color: '#B91C1C', textAlign: 'right', maxWidth: 180 }}>
+                            {checkingDeleteImpact ? (
+                              'Kontrol ediliyor…'
+                            ) : deleteBoardCount && deleteBoardCount > 0 ? (
+                              <>⚠️ Bu personelin {deleteBoardCount} proje/görevi de silinecek!</>
+                            ) : (
+                              'Personel silinecek.'
+                            )}
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', gap: 6 }}>
                         <button onClick={() => handleRoleChange(p, p.role === 'admin' ? 'manager' : 'admin')} disabled={roleChanging === p.id}
                           title={p.role === 'admin' ? 'Personel yap' : 'Yönetici yap'}
-                          style={{ fontSize: 10, fontWeight: 600, padding: '4px 7px', borderRadius: 6, border: '1px solid var(--border)', background: '#fff', cursor: 'pointer' }}>
+                          style={{ fontSize: 10, fontWeight: 600, padding: '4px 7px', borderRadius: 6, border: '1px solid var(--border)', background: '#fff', cursor: 'pointer', display: confirmDel === p.id ? 'none' : undefined }}>
                           {roleChanging === p.id ? '…' : p.role === 'admin' ? 'Personel Yap' : 'Yönetici Yap'}
                         </button>
                         <button onClick={() => startEdit(p)} title="Düzenle"
-                          style={{ border: 'none', background: 'none', color: '#64748B', cursor: 'pointer', padding: 4 }}>
+                          style={{ border: 'none', background: 'none', color: '#64748B', cursor: 'pointer', padding: 4, display: confirmDel === p.id ? 'none' : undefined }}>
                           <Icon name="edit" size={13} />
                         </button>
                         {confirmDel === p.id ? (
                           <>
                             <button onClick={() => handleDeletePersonel(p.id)} style={{ fontSize: 10, border: 'none', background: '#EF4444', color: '#fff', borderRadius: 6, padding: '4px 7px', cursor: 'pointer' }}>Evet</button>
-                            <button onClick={() => setConfirmDel(null)} style={{ fontSize: 10, border: 'none', background: '#F1F5F9', borderRadius: 6, padding: '4px 7px', cursor: 'pointer' }}>Vazgeç</button>
+                            <button onClick={() => { setConfirmDel(null); setDeleteBoardCount(null); }} style={{ fontSize: 10, border: 'none', background: '#F1F5F9', borderRadius: 6, padding: '4px 7px', cursor: 'pointer' }}>Vazgeç</button>
                           </>
                         ) : (
-                          <button onClick={() => setConfirmDel(p.id)} title="Sil" style={{ border: 'none', background: 'none', color: '#EF4444', cursor: 'pointer', padding: 4 }}>
+                          <button onClick={() => handleDeleteClick(p.id)} title="Sil" style={{ border: 'none', background: 'none', color: '#EF4444', cursor: 'pointer', padding: 4 }}>
                             <Icon name="trash" size={13} />
                           </button>
                         )}
+                        </div>
                       </div>
                     )}
                   </td>

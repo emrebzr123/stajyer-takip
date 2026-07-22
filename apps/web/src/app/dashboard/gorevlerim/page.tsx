@@ -286,35 +286,68 @@ function ManagerBoardCard({ board, active, completed, onToggle }: {
   board: any; active: any[]; completed: any[]; onToggle: (t: any) => void;
 }) {
   const [showCompleted, setShowCompleted] = useState(false);
+  // Yönetici panelindeki Görevler sayfasıyla AYNI özellik — başlığa
+  // tıklayınca kart küçülüp sadece başlık satırı kalıyor, tekrar
+  // tıklanınca eski hâline dönüyor.
+  const [collapsed, setCollapsed] = useState(false);
+  // Alt görevler en yakın bitiş tarihinden en uzağa doğru sıralanıyor —
+  // bitiş tarihi olmayanlar en sona düşüyor (aciliyeti olmadığı için).
+  const sortByDue = (list: any[]) => [...list].sort((a, b) => {
+    if (!a.dueDate && !b.dueDate) return 0;
+    if (!a.dueDate) return 1;
+    if (!b.dueDate) return -1;
+    return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+  });
+  const sortedActive = sortByDue(active);
+  const sortedCompleted = sortByDue(completed);
   return (
     <div style={{
       minWidth: 270, maxWidth: 270, flexShrink: 0, background: '#F8FAFC',
-      borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', maxHeight: 400,
+      borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', maxHeight: collapsed ? undefined : 400,
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+      <div
+        onClick={() => setCollapsed((c) => !c)}
+        title={collapsed ? 'Genişletmek için tıklayın' : 'Küçültmek için tıklayın'}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, cursor: 'pointer' }}
+      >
         <span style={{ width: 10, height: 10, borderRadius: '50%', background: board.color, flexShrink: 0 }} />
         <span style={{ fontWeight: 700, fontSize: 14, flex: 1, wordBreak: 'break-word' }}>{board.name}</span>
         <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600, flexShrink: 0 }}>{active.length}</span>
+        <Icon name="chevron" size={13} style={{ color: 'var(--text-secondary)', flexShrink: 0, transform: collapsed ? 'rotate(-90deg)' : 'none', transition: 'transform .15s' }} />
       </div>
-      {/* Şirket rozeti (varsa) + oluşturulma tarihi — Yönetici panelindeki
-          Görevler sayfasıyla BİREBİR AYNI gösterim. */}
+      {!collapsed && (
+      <>
+      {/* Şirket rozeti (varsa) + oluşturulma tarihi + bitiş tarihi (varsa)
+          — Yönetici panelindeki Görevler sayfasıyla BİREBİR AYNI gösterim. */}
       <div style={{ marginBottom: 10, marginLeft: 18, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-        {board.company && (
+        {board.company ? (
           <span style={{
             fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 8,
             color: board.color, background: board.color + '18',
           }}>
             🏢 {board.company.name}
           </span>
+        ) : (
+          <span style={{
+            fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 8,
+            color: board.color, background: board.color + '18',
+          }}>
+            ✅ Görev
+          </span>
         )}
         <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>
-          📅 {fmtDateWithYear(board.createdAt)}
+          📅 Başlangıç: {fmtDateWithYear(board.createdAt)}
         </span>
+        {board.dueDate && (
+          <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>
+            🏁 Bitiş: {fmtDateWithYear(board.dueDate)}
+          </span>
+        )}
       </div>
       <div style={{ overflowY: 'auto', flex: 1 }}>
         {active.length === 0 ? (
           <div style={{ textAlign: 'center', color: '#CBD5E1', fontSize: 12, padding: '16px 0' }}>Devam eden görev yok. 🎉</div>
-        ) : active.map((t) => (
+        ) : sortedActive.map((t) => (
           <label key={t.id} style={{
             display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 10px',
             borderRadius: 8, marginBottom: 6, background: '#fff', border: '1px solid var(--border)', cursor: 'pointer',
@@ -327,7 +360,8 @@ function ManagerBoardCard({ board, active, completed, onToggle }: {
                 <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 10, color: PRIORITY_COLOR[t.priority], background: PRIORITY_COLOR[t.priority] + '18' }}>
                   {t.priority}
                 </span>
-                {t.dueDate && <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>📅 {fmtDate(t.dueDate)}</span>}
+                {t.createdAt && <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>📅 {fmtDate(t.createdAt)}</span>}
+                {t.dueDate && <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>🏁 {fmtDate(t.dueDate)}</span>}
               </div>
             </div>
           </label>
@@ -338,19 +372,27 @@ function ManagerBoardCard({ board, active, completed, onToggle }: {
               style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '4px 2px', fontSize: 11, fontWeight: 700, color: '#16A34A' }}>
               ✓ {completed.length} tamamlandı {showCompleted ? '▲' : '▼'}
             </button>
-            {showCompleted && completed.map((t) => (
+            {showCompleted && sortedCompleted.map((t) => (
               <label key={t.id} style={{
                 display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 10px',
                 borderRadius: 8, marginTop: 6, background: '#fff', border: '1px solid var(--border)', cursor: 'pointer', opacity: 0.6,
               }}>
                 <input type="checkbox" checked={true} onChange={() => onToggle(t)}
                   style={{ width: 15, height: 15, marginTop: 2, cursor: 'pointer', accentColor: '#22C55E', flexShrink: 0 }} />
-                <div style={{ fontSize: 13, fontWeight: 600, textDecoration: 'line-through', wordBreak: 'break-word' }}>{t.title}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, textDecoration: 'line-through', wordBreak: 'break-word' }}>{t.title}</div>
+                  <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+                    {t.createdAt && <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>📅 {fmtDate(t.createdAt)}</span>}
+                    {t.dueDate && <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>🏁 {fmtDate(t.dueDate)}</span>}
+                  </div>
+                </div>
               </label>
             ))}
           </div>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }

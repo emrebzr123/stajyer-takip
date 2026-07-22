@@ -22,12 +22,26 @@ export class PersonnelTasksService {
   ) {}
 
   // Yönetici — belirli bir Personel için oluşturulmuş bölümleri görür.
-  async findBoardsFor(assignedToId: string) {
-    return this.boardsRepo.find({
+  // requesterAdminId VERİLDİYSE (yani bu bir Yönetici isteğiyse), o
+  // Yönetici'nin hiddenFromAdminIds listesinde olduğu board'lar sonuçtan
+  // ÇIKARILIR. Personel'in kendi görünümünde (findMyBoards) bu parametre
+  // hiç verilmiyor — Personel her zaman kendisine atanan TÜM işleri görür,
+  // bu kısıtlama sadece admin-admin arası görünürlük içindir.
+  async findBoardsFor(assignedToId: string, requesterAdminId?: string) {
+    const boards = await this.boardsRepo.find({
       where: { assignedToId },
       relations: ['tasks'],
       order: { orderIndex: 'ASC', createdAt: 'ASC' },
     });
+    if (!requesterAdminId) return boards;
+    // NOT: Önceden burada "createdById === requesterAdminId" istisnası
+    // YOKTU — koddaki yorum "oluşturan sen her zaman görürsün" diyordu
+    // ama gerçek filtre bunu uygulamıyordu. Sonuç: bir Yönetici, kendi
+    // oluşturduğu bir projede yanlışlıkla kendi checkbox'ını kaldırırsa,
+    // KENDİSİ DE o projeyi bir daha göremiyordu — kendi oluşturduğu işi
+    // kaybetmiş gibi oluyordu. Artık oluşturan kişi bu kısıtlamadan HER
+    // ZAMAN muaf.
+    return boards.filter((b) => b.createdById === requesterAdminId || !b.hiddenFromAdminIds?.includes(requesterAdminId));
   }
 
   // Personel — SADECE kendisine ait bölümleri görür (kendi "Görevlerim"
@@ -45,6 +59,8 @@ export class PersonnelTasksService {
       color: dto.color || DEFAULT_COLORS[count % DEFAULT_COLORS.length],
       orderIndex: count,
       companyId: dto.companyId || undefined,
+      dueDate: dto.dueDate || undefined,
+      hiddenFromAdminIds: dto.hiddenFromAdminIds?.length ? dto.hiddenFromAdminIds : undefined,
     });
     const saved = await this.boardsRepo.save(board);
 
@@ -79,6 +95,8 @@ export class PersonnelTasksService {
     if (dto.name !== undefined) board.name = dto.name.trim();
     if (dto.color !== undefined) board.color = dto.color;
     if (dto.orderIndex !== undefined) board.orderIndex = dto.orderIndex;
+    if (dto.dueDate !== undefined) board.dueDate = dto.dueDate;
+    if (dto.hiddenFromAdminIds !== undefined) board.hiddenFromAdminIds = dto.hiddenFromAdminIds;
     return this.boardsRepo.save(board);
   }
 

@@ -4,7 +4,7 @@ import Icon from '../ui/Icon';
 import Button from '../ui/Button';
 import { internsApi, companiesApi, usersApi } from '@/lib/api';
 import api from '@/lib/api';
-import { DEFAULT_DEPARTMENTS, DEFAULT_COMPANIES, DEFAULT_MENTORS } from '@/lib/constants';
+import { DEFAULT_DEPARTMENTS, DEFAULT_MENTORS } from '@/lib/constants';
 import { TURKISH_UNIVERSITIES, ACADEMIC_DEPARTMENTS } from '@/lib/turkish-universities';
 import { toEmailLocalPart, getDefaultTerm } from '@/lib/utils';
 import toast from 'react-hot-toast';
@@ -231,7 +231,11 @@ export default function InternModal({ open, onClose, onSuccess, intern }: Intern
   const isEdit = !!intern;
   const [loading, setLoading]       = useState(false);
   const [activeTab, setActiveTab]   = useState<'kisisel'|'staj'|'diger'>('kisisel');
-  const [companies, setCompanies]   = useState<EntityOption[]>(DEFAULT_COMPANIES.map(name => ({ id:'', name })));
+  // NOT: Önceden burada sabit kodlanmış ('ELECTROMTECH', 'ATN SoftTech')
+  // varsayılan şirketler vardı — Yönetici bunları Şirketler sayfasından
+  // silse bile hep görünmeye devam ediyordu. Artık liste TAMAMEN
+  // veritabanından (Yönetici'nin gerçekten girdiği şirketlerden) geliyor.
+  const [companies, setCompanies]   = useState<EntityOption[]>([]);
   const [mentors, setMentors]       = useState<EntityOption[]>(DEFAULT_MENTORS.map(name => ({ id:'', name })));
   const [departments, setDepartments] = useState<string[]>(DEFAULT_DEPARTMENTS);
 
@@ -249,7 +253,7 @@ export default function InternModal({ open, onClose, onSuccess, intern }: Intern
   const loadCompanies = () => {
     companiesApi.getAll().then(r => {
       const apiItems: EntityOption[] = (r.data || []).map((c: any) => ({ id: c.id, name: c.name }));
-      setCompanies(mergeEntityOptions(DEFAULT_COMPANIES, apiItems));
+      setCompanies(mergeEntityOptions([], apiItems));
     }).catch(() => {});
   };
   const loadMentors = () => {
@@ -305,7 +309,7 @@ export default function InternModal({ open, onClose, onSuccess, intern }: Intern
     const found = (res.data || []).find((c: any) => c.name.toLowerCase() === name.trim().toLowerCase());
     if (found) return found.id;
     const created = await companiesApi.findOrCreate(name.trim());
-    setCompanies(prev => mergeEntityOptions(DEFAULT_COMPANIES, [
+    setCompanies(prev => mergeEntityOptions([], [
       ...prev.filter(p => p.id).map(p => ({ id: p.id, name: p.name })),
       { id: created.data.id, name: name.trim() },
     ]));
@@ -522,7 +526,7 @@ export default function InternModal({ open, onClose, onSuccess, intern }: Intern
                   setForm(f=>({...f,companyName:v}));
                   try {
                     const created = await companiesApi.findOrCreate(v);
-                    setCompanies(prev => mergeEntityOptions(DEFAULT_COMPANIES, [
+                    setCompanies(prev => mergeEntityOptions([], [
                       ...prev.filter(p=>p.id).map(p=>({id:p.id,name:p.name})),
                       { id: created.data.id, name: v },
                     ]));

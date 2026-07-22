@@ -50,6 +50,23 @@ export class PersonnelTaskBoardEntity {
   @Column({ name: 'company_id', nullable: true })
   companyId: string;
 
+  // Bitiş tarihi — kullanıcı sadece bunu girer, başlangıç (oluşturulma)
+  // zaten createdAt ile otomatik. Opsiyonel: eski kayıtlarda ya da hâlâ
+  // tarihsiz oluşturulanlarda boş kalabilir.
+  @Column({ type: 'date', nullable: true })
+  dueDate: string;
+
+  // Bu proje/görevi HANGİ Yöneticilerin (admin) GÖREMEYECEĞİ — varsayılan
+  // (boş/null) durumda TÜM Yöneticiler görür. Bir admin ID'si buraya
+  // eklenirse, o Yönetici artık bu projeyi Görevler sayfasında ve İş Takip
+  // Listesi'nde görmez. NOT: Bu kısıtlama SADECE diğer Yöneticileri
+  // etkiler — projenin atandığı Personel ve projeyi oluşturan Yönetici
+  // her zaman görmeye devam eder (onlar zaten "hariç tutulan" listesine
+  // dahil edilmez, mantıksal olarak bu ACL sadece admin-admin arası
+  // görünürlük içindir).
+  @Column('simple-array', { nullable: true })
+  hiddenFromAdminIds: string[];
+
   @OneToMany(() => PersonnelTaskItemEntity, (t) => t.board, { cascade: true })
   tasks: PersonnelTaskItemEntity[];
 

@@ -215,11 +215,16 @@ export const adminTasksApi = {
 export const personnelTasksApi = {
   // Yönetici — belirli bir personelin bölümlerini getirir
   getBoardsFor: (assignedToId: string) => api.get('/personnel-tasks/boards', { params: { assignedToId } }),
+  // Bir personel silinmeden önce "kaç proje/görevi de silinecek" uyarısı
+  // için — görünürlük kısıtlamasından (hiddenFromAdminIds) ETKİLENMEYEN
+  // GERÇEK sayıyı döner, çünkü silme geri alınamaz.
+  countBoardsForDeletionWarning: (assignedToId: string) =>
+    api.get('/personnel-tasks/boards/count-for-deletion-warning', { params: { assignedToId } }),
   // Personel — kendi bölümlerini getirir
   getMyBoards: () => api.get('/personnel-tasks/boards/my'),
-  createBoard: (assignedToId: string, name: string, companyId?: string, color?: string) =>
-    api.post('/personnel-tasks/boards', { assignedToId, name, companyId, color }),
-  updateBoard: (id: string, data: { name?: string; color?: string; orderIndex?: number }) =>
+  createBoard: (assignedToId: string, name: string, companyId?: string, color?: string, dueDate?: string, hiddenFromAdminIds?: string[]) =>
+    api.post('/personnel-tasks/boards', { assignedToId, name, companyId, color, dueDate, hiddenFromAdminIds }),
+  updateBoard: (id: string, data: { name?: string; color?: string; orderIndex?: number; dueDate?: string; hiddenFromAdminIds?: string[] }) =>
     api.patch(`/personnel-tasks/boards/${id}`, data),
   removeBoard: (id: string) => api.delete(`/personnel-tasks/boards/${id}`),
   removeBoards: (ids: string[]) => api.delete('/personnel-tasks/boards', { data: { ids } }),

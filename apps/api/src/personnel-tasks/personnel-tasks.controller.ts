@@ -22,10 +22,25 @@ export class PersonnelTasksController {
   constructor(private readonly service: PersonnelTasksService) {}
 
   // Yönetici — belirli bir personelin bölümlerini görür (?assignedToId=)
+  // NOT: req.user.id de geçiriliyor — kendisi bir görünürlük kısıtlamasında
+  // (hiddenFromAdminIds) yer alıyorsa o proje/görevler bu isteğin
+  // sonucundan filtreleniyor.
   @Get('boards')
   @Roles(UserRole.ADMIN)
-  findBoards(@Query('assignedToId') assignedToId: string) {
-    return this.service.findBoardsFor(assignedToId);
+  findBoards(@Query('assignedToId') assignedToId: string, @Req() req: any) {
+    return this.service.findBoardsFor(assignedToId, req.user.id);
+  }
+
+  // Bir Personel silinmeden ÖNCE "kaç proje/görevi de silinecek" uyarısı
+  // için — BİLEREK görünürlük filtrelemesi UYGULANMAZ (hiddenFromAdminIds).
+  // Çünkü silme geri alınamaz bir işlem; başka bir Yönetici'nin bu
+  // isteği yapan kişiden gizlediği bir proje olsa bile, o proje de
+  // silinecek — uyarı GERÇEK sayıyı göstermeli, eksik göstermemeli.
+  @Get('boards/count-for-deletion-warning')
+  @Roles(UserRole.ADMIN)
+  async countBoardsForDeletionWarning(@Query('assignedToId') assignedToId: string) {
+    const boards = await this.service.findBoardsFor(assignedToId);
+    return { count: boards.length };
   }
 
   // Personel — kendi bölümlerini görür (Görevlerim sayfası)

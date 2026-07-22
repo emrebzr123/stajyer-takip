@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsIn, IsDateString, IsBoolean, IsUUID, IsInt } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsIn, IsDateString, IsBoolean, IsUUID, IsInt, IsArray } from 'class-validator';
 
 export class CreatePersonnelBoardDto {
   @IsUUID()
@@ -15,6 +15,17 @@ export class CreatePersonnelBoardDto {
   @IsUUID()
   @IsOptional()
   companyId?: string;
+
+  @IsDateString()
+  @IsOptional()
+  dueDate?: string;
+
+  // Bu projeyi GÖREMEYECEK Yönetici (admin) ID'leri — boş bırakılırsa
+  // varsayılan olarak TÜM Yöneticiler görür.
+  @IsArray()
+  @IsUUID('4', { each: true })
+  @IsOptional()
+  hiddenFromAdminIds?: string[];
 }
 
 export class UpdatePersonnelBoardDto {
@@ -30,6 +41,15 @@ export class UpdatePersonnelBoardDto {
   @IsInt()
   @IsOptional()
   orderIndex?: number;
+
+  @IsDateString()
+  @IsOptional()
+  dueDate?: string;
+
+  @IsArray()
+  @IsUUID('4', { each: true })
+  @IsOptional()
+  hiddenFromAdminIds?: string[];
 }
 
 export class CreatePersonnelTaskItemDto {
