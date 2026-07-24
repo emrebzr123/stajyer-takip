@@ -4,9 +4,9 @@ import Icon from '../ui/Icon';
 import Button from '../ui/Button';
 import { internsApi, companiesApi, usersApi } from '@/lib/api';
 import api from '@/lib/api';
-import { DEFAULT_DEPARTMENTS, DEFAULT_MENTORS } from '@/lib/constants';
+import { DEFAULT_DEPARTMENTS } from '@/lib/constants';
 import { TURKISH_UNIVERSITIES, ACADEMIC_DEPARTMENTS } from '@/lib/turkish-universities';
-import { toEmailLocalPart, getDefaultTerm } from '@/lib/utils';
+import { getDefaultTerm } from '@/lib/utils';
 import toast from 'react-hot-toast';
 
 interface InternModalProps {
@@ -236,7 +236,15 @@ export default function InternModal({ open, onClose, onSuccess, intern }: Intern
   // silse bile hep görünmeye devam ediyordu. Artık liste TAMAMEN
   // veritabanından (Yönetici'nin gerçekten girdiği şirketlerden) geliyor.
   const [companies, setCompanies]   = useState<EntityOption[]>([]);
-  const [mentors, setMentors]       = useState<EntityOption[]>(DEFAULT_MENTORS.map(name => ({ id:'', name })));
+  // NOT: Önceden burada sabit kodlanmış varsayılan mentörler vardı VE
+  // kullanıcı mevcut olmayan bir isim yazdığında OTOMATİK OLARAK, sabit
+  // 'password123' şifresiyle YENİ bir Personel hesabı açılıyordu (bkz.
+  // resolveMentorId ve EntityComboBox'ın onAddNew'i aşağıda). Bu hem
+  // güvenlik açığıydı (tahmin edilebilir şifre) hem de bir yazım hatası
+  // yapıldığında bildirimlerin gerçek mentöre değil bu "hayalet" hesaba
+  // gitmesine yol açıyordu. Artık liste TAMAMEN veritabanından geliyor,
+  // yeni isim yazılamıyor — sadece mevcut Personel/Yönetici seçilebiliyor.
+  const [mentors, setMentors]       = useState<EntityOption[]>([]);
   const [departments, setDepartments] = useState<string[]>(DEFAULT_DEPARTMENTS);
 
   const [form, setForm] = useState({
@@ -265,7 +273,7 @@ export default function InternModal({ open, onClose, onSuccess, intern }: Intern
       const apiItems: EntityOption[] = (r.data || [])
         .filter((u: any) => u.role === 'manager')
         .map((u: any) => ({ id: u.id, name: u.name }));
-      setMentors(mergeEntityOptions(DEFAULT_MENTORS, apiItems));
+      setMentors(mergeEntityOptions([], apiItems));
     }).catch(() => {});
   };
 
@@ -316,24 +324,17 @@ export default function InternModal({ open, onClose, onSuccess, intern }: Intern
     return created.data.id;
   };
 
-  // Mentör adından e-posta üretirken artık toEmailLocalPart kullanılıyor —
-  // bu, Türkçe karakterleri (ğ, ü, ş, ö, ç, ı, İ) SİLMEDEN, @ öncesinde
-  // güvenli ve öngörülebilir biçimde korur. Önceki `.toLowerCase()` kullanımı
-  // özellikle "İ" harfinde bozuk bir karaktere (i + birleşik nokta) dönüşüme
-  // yol açıyordu.
+  // NOT: Önceden burada, isim bulunamazsa OTOMATİK olarak sabit
+  // 'password123' şifresiyle YENİ bir Personel hesabı oluşturuluyordu.
+  // Artık Mentör alanı sadece mevcut listeden seçim yaptırdığı için
+  // (aşağıdaki <select>), bu dal pratikte hiç çalışmaz — yine de
+  // savunma amaçlı, bulunamazsa hesap AÇMIYOR, sadece undefined dönüyor.
   const resolveMentorId = async (name: string) => {
     if (!name.trim()) return undefined;
     const res = await api.get('/users');
     const all = res.data || [];
     const found = all.find((u: any) => u.name.toLowerCase() === name.trim().toLowerCase());
-    if (found) return found.id;
-    const email = `${toEmailLocalPart(name)}@mentor.com`;
-    const created = await api.post('/users', { name:name.trim(), email, password:'password123', role:'manager' });
-    setMentors(prev => mergeEntityOptions(DEFAULT_MENTORS, [
-      ...prev.filter(p => p.id).map(p => ({ id: p.id, name: p.name })),
-      { id: created.data.id, name: name.trim() },
-    ]));
-    return created.data.id;
+    return found?.id;
   };
 
   const resolveDepartmentId = async (name: string) => {
@@ -359,17 +360,9 @@ export default function InternModal({ open, onClose, onSuccess, intern }: Intern
     }
   };
 
-  // Mentör sil — gerçek kullanıcı hesabını da (role: manager) siler.
-  const deleteMentor = async (opt: EntityOption) => {
-    try {
-      if (opt.id) await usersApi.remove(opt.id);
-      setMentors(prev => prev.filter(m => m.name.toLowerCase() !== opt.name.toLowerCase()));
-      if (form.mentorName.toLowerCase() === opt.name.toLowerCase()) setForm(f => ({ ...f, mentorName: '' }));
-      toast.success(`"${opt.name}" mentör listesinden kaldırıldı.`);
-    } catch (e: any) {
-      toast.error(e?.response?.data?.message || 'Mentör silinemedi.');
-    }
-  };
+  // NOT: deleteMentor fonksiyonu kaldırıldı — Mentör alanı artık düz bir
+  // <select>, silme özelliği hiç yok. Personel silme işlemi zaten Personel
+  // sayfasında (uyarı göstererek) yapılıyor, buradan yapılmaması daha güvenli.
 
   const handleSubmit = async () => {
     if (!isEdit && (!form.name.trim() || !form.email.trim() || !form.password.trim())) {
@@ -539,22 +532,25 @@ export default function InternModal({ open, onClose, onSuccess, intern }: Intern
                 options={departments}
                 onAddNew={async (v) => { setForm(f=>({...f,departmentName:v})); if(!departments.includes(v)) setDepartments(p=>[...p,v]); }}
                 placeholder="Departman seçin veya yazın"/>
-              <EntityComboBox label="Mentör" value={form.mentorName}
-                onChange={v=>setForm(f=>({...f,mentorName:v}))}
-                options={mentors}
-                onAddNew={async (v) => {
-                  setForm(f=>({...f,mentorName:v}));
-                  try {
-                    const email = `${toEmailLocalPart(v)}@mentor.com`;
-                    const created = await api.post('/users', { name:v, email, password:'password123', role:'manager' });
-                    setMentors(prev => mergeEntityOptions(DEFAULT_MENTORS, [
-                      ...prev.filter(p=>p.id).map(p=>({id:p.id,name:p.name})),
-                      { id: created.data.id, name: v },
-                    ]));
-                  } catch { /* handleSubmit sırasında zaten tekrar denenir */ }
-                }}
-                onDelete={deleteMentor}
-                placeholder="Mentör seçin veya yazın"/>
+              {/* NOT: Önceden bu alan bir EntityComboBox'tı (serbest yazma +
+                  ekleme + silme özellikli) — mevcut olmayan bir isim
+                  yazıldığında sabit 'password123' şifresiyle otomatik yeni
+                  bir Personel hesabı açılıyordu (güvenlik açığı + yanlış
+                  yazılan isimlerde bildirimlerin kaybolması). Artık sadece
+                  mevcut Personel/Yönetici listesinden SEÇİM yapılabiliyor. */}
+              <div className="form-group">
+                <label className="form-label">Mentör</label>
+                <select className="form-select" value={form.mentorName}
+                  onChange={(e) => setForm(f => ({ ...f, mentorName: e.target.value }))}>
+                  <option value="">Mentör seçin</option>
+                  {mentors.map((m) => <option key={m.id} value={m.name}>{m.name}</option>)}
+                </select>
+                {mentors.length === 0 && (
+                  <small style={{ color: 'var(--text-secondary)', fontSize: 11, display: 'block', marginTop: 4 }}>
+                    Hiç Personel yok — önce Personel sayfasından ekleyin.
+                  </small>
+                )}
+              </div>
               <div className="form-row">
                 <div className="form-group">
                   <label className="form-label">Dönem / Staj Yılı</label>

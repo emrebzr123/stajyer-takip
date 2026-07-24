@@ -193,8 +193,8 @@ export const attendanceApi = {
 // (backend'de sahiplik kontrolü yapılır).
 export const adminTasksApi = {
   getBoards: () => api.get('/admin-tasks/boards'),
-  createBoard: (name: string, color?: string) => api.post('/admin-tasks/boards', { name, color }),
-  updateBoard: (id: string, data: { name?: string; color?: string; orderIndex?: number }) =>
+  createBoard: (name: string, color?: string, dueDate?: string) => api.post('/admin-tasks/boards', { name, color, dueDate }),
+  updateBoard: (id: string, data: { name?: string; color?: string; orderIndex?: number; dueDate?: string }) =>
     api.patch(`/admin-tasks/boards/${id}`, data),
   removeBoard: (id: string) => api.delete(`/admin-tasks/boards/${id}`),
   removeBoards: (ids: string[]) => api.delete('/admin-tasks/boards', { data: { ids } }),

@@ -5,6 +5,9 @@ import { SubTaskEntity } from './subtask.entity';
 import { TaskEntity } from '../tasks/task.entity';
 import { computeTaskStatus } from '../tasks/task-status.util';
 import { AppNotificationsService } from '../notifications/app-notifications.service';
+// "Görev Aktar" ile bir Personel alt görevinden aktarılan alt görevler
+// tamamlandığında, kaynak PersonnelTaskItem'ı da otomatik işaretlemek için.
+import { PersonnelTaskItemEntity } from '../personnel-tasks/personnel-task-item.entity';
 
 @Injectable()
 export class SubTasksService {
@@ -13,6 +16,8 @@ export class SubTasksService {
     private readonly repo: Repository<SubTaskEntity>,
     @InjectRepository(TaskEntity)
     private readonly tasksRepo: Repository<TaskEntity>,
+    @InjectRepository(PersonnelTaskItemEntity)
+    private readonly personnelTaskItemsRepo: Repository<PersonnelTaskItemEntity>,
     private readonly notifications: AppNotificationsService,
   ) {}
 
@@ -40,6 +45,17 @@ export class SubTasksService {
 
     subtask.isCompleted = isCompleted;
     await this.repo.save(subtask);
+
+    // Bu alt görev "Görev Aktar" ile bir Personel alt görevinden geldiyse
+    // (sourcePersonnelTaskItemId ile işaretli), aynı tamamlanma durumunu
+    // kaynağa da yansıt — ÇİFT YÖNLÜ senkronizasyonun bir yönü (diğer yönü
+    // personnel-tasks.service.ts'deki updateTask()'ta). Hata olursa (örn.
+    // kaynak zaten silinmişse) sessizce yutulur, asıl işlemi etkilemez.
+    if (subtask.sourcePersonnelTaskItemId) {
+      this.personnelTaskItemsRepo
+        .update({ id: subtask.sourcePersonnelTaskItemId }, { isCompleted })
+        .catch(() => undefined);
+    }
 
     // Aynı göreve ait tüm subtask'ları çek, ilerlemeyi hesapla
     const all = await this.repo.find({ where: { taskId: subtask.taskId } });

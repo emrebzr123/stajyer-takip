@@ -327,6 +327,7 @@ export default function IsTakipPage() {
           <table>
             <thead>
               <tr>
+                <th style={{ width: 32 }}>#</th>
                 <th style={{ width: 36 }}>
                   <input type="checkbox" checked={allOnPageSelected} onChange={toggleSelectAll}
                     style={{ width: 15, height: 15, cursor: 'pointer', accentColor: 'var(--primary)' }} />
@@ -344,16 +345,19 @@ export default function IsTakipPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={10} style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>Yükleniyor…</td></tr>
+                <tr><td colSpan={11} style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>Yükleniyor…</td></tr>
               ) : error ? (
-                <tr><td colSpan={10} style={{ textAlign: 'center', padding: 40, color: 'var(--red)' }}>{error}</td></tr>
+                <tr><td colSpan={11} style={{ textAlign: 'center', padding: 40, color: 'var(--red)' }}>{error}</td></tr>
               ) : data.length === 0 ? (
-                <tr><td colSpan={10} style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>Görev bulunamadı.</td></tr>
+                <tr><td colSpan={11} style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>Görev bulunamadı.</td></tr>
               ) : (
-                data.map((task: any) => (
+                data.map((task: any, index: number) => (
                   <React.Fragment key={task.id}>
                   <tr onClick={() => setExpandedId(expandedId === task.id ? null : task.id)}
                     style={{ cursor: 'pointer', background: expandedId === task.id ? '#F8FAFC' : selected.has(task.id) ? '#FEF2F2' : undefined }}>
+                    <td style={{ color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600 }}>
+                      {(page - 1) * 10 + index + 1}
+                    </td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <input type="checkbox" checked={selected.has(task.id)} onChange={() => toggleSelectOne(task.id)}
                         style={{ width: 15, height: 15, cursor: 'pointer', accentColor: 'var(--primary)' }} />
@@ -407,7 +411,7 @@ export default function IsTakipPage() {
                     </td>
                   </tr>
                   {expandedId === task.id && (
-                    <TaskDetailRow task={task} colSpan={10} onTaskChange={() => setTimeout(() => refresh(), 300)} />
+                    <TaskDetailRow task={task} colSpan={11} onTaskChange={() => setTimeout(() => refresh(), 300)} />
                   )}
                   </React.Fragment>
                 ))

@@ -8,6 +8,14 @@ import {
   CreatePersonnelTaskItemDto, UpdatePersonnelTaskItemDto,
 } from './dto/personnel-task.dto';
 import { AppNotificationsService } from '../notifications/app-notifications.service';
+// "Görev Aktar" ile bir alt görevden aktarılan stajyer alt görevini, kaynak
+// alt görev burada (Personel/Yönetici tarafından) elle işaretlendiğinde de
+// senkron tutmak için — bkz. syncTransferredSubtask. SubTasksService'in
+// kendi toggle() metodunu çağırıyoruz ki görevin GENEL ilerlemesi
+// (progress/status) de doğru yeniden hesaplansın — bu mantığı burada
+// tekrarlamamak için.
+import { SubTaskEntity } from '../subtasks/subtask.entity';
+import { SubTasksService } from '../subtasks/subtasks.service';
 
 const DEFAULT_COLORS = ['#1E3A5F', '#0F6E6E', '#7C3AED', '#EA580C', '#DB2777', '#059669'];
 
@@ -18,8 +26,27 @@ export class PersonnelTasksService {
     private readonly boardsRepo: Repository<PersonnelTaskBoardEntity>,
     @InjectRepository(PersonnelTaskItemEntity)
     private readonly itemsRepo: Repository<PersonnelTaskItemEntity>,
+    @InjectRepository(SubTaskEntity)
+    private readonly subtasksRepo: Repository<SubTaskEntity>,
+    private readonly subTasksService: SubTasksService,
     private readonly notifications: AppNotificationsService,
   ) {}
+
+  // Bu alt görevden "Görev Aktar" ile oluşturulmuş bir stajyer alt görevi
+  // varsa (sourcePersonnelTaskItemId ile işaretli), onun da tamamlanma
+  // durumunu buradaki değişiklikle senkron tutar — ÇİFT YÖNLÜ
+  // senkronizasyonun ikinci yönü (subtasks.service.ts'deki toggle()'ın
+  // simetriği). Aktarılmamış bir alt görevde hiçbir eşleşme bulunamaz,
+  // sessizce hiçbir şey yapmaz.
+  private async syncTransferredSubtask(personnelTaskItemId: string, isCompleted: boolean) {
+    const subtask = await this.subtasksRepo.findOne({ where: { sourcePersonnelTaskItemId: personnelTaskItemId } });
+    if (!subtask) return;
+    // toggle() zaten hem alt görevi işaretliyor hem bağlı olduğu görevin
+    // genel ilerlemesini yeniden hesaplıyor — requesterInternId=undefined
+    // (bu istek Personel/Yönetici'den geliyor, stajyer yetki kontrolü
+    // atlanır, zaten controller seviyesinde @Roles korumalı).
+    await this.subTasksService.toggle(subtask.id, isCompleted);
+  }
 
   // Yönetici — belirli bir Personel için oluşturulmuş bölümleri görür.
   // requesterAdminId VERİLDİYSE (yani bu bir Yönetici isteğiyse), o
@@ -179,6 +206,13 @@ export class PersonnelTasksService {
           link: `/yonetici/dashboard/gorevler?personelId=${task.board.assignedToId}`,
         })
         .catch(() => undefined);
+    }
+
+    // Bu alt görev, aktarılmış bir stajyer görevinin kaynağıysa (ÇİFT
+    // YÖNLÜ senkronizasyonun ikinci yönü) — sadece isCompleted GERÇEKTEN
+    // değiştiyse gereksiz sorgu atmayalım.
+    if (dto.isCompleted !== undefined && wasCompleted !== saved.isCompleted) {
+      await this.syncTransferredSubtask(id, saved.isCompleted).catch(() => undefined);
     }
 
     return saved;

@@ -131,17 +131,25 @@ export default function InternDrawer({ intern, onClose }: InternDrawerProps) {
             <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Yükleniyor…</div>
           ) : internTasks.length === 0 ? (
             <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Atanmış görev yok.</div>
-          ) : internTasks.slice(0, 6).map((t: any) => (
-            <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid #F1F5F9' }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.title}</div>
-                <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{t.status} · Son: {new Date(t.dueDate).toLocaleDateString('tr-TR')}</div>
-              </div>
-              <span style={{ fontSize: 12, fontWeight: 800, color: t.progress === 100 ? '#22C55E' : 'var(--text-secondary)', flexShrink: 0 }}>
-                %{t.progress}
-              </span>
+          ) : (
+            // NOT: Önceden burada .slice(0,6) ile sadece ilk 6 görev
+            // gösteriliyor, fazlası HİÇ görünmüyordu. Artık TÜM görevler
+            // gösteriliyor — 5'ten fazlaysa liste kendi içinde kayıyor,
+            // sayfa/paneli uzatmıyor.
+            <div style={{ maxHeight: internTasks.length > 5 ? 5 * 46 : undefined, overflowY: internTasks.length > 5 ? 'auto' : undefined }}>
+              {internTasks.map((t: any) => (
+                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid #F1F5F9' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.title}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{t.status} · Son: {new Date(t.dueDate).toLocaleDateString('tr-TR')}</div>
+                  </div>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: t.progress === 100 ? '#22C55E' : 'var(--text-secondary)', flexShrink: 0 }}>
+                    %{t.progress}
+                  </span>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
 
           {/* ── Belgeler ── */}
           <div style={{ fontWeight: 700, fontSize: 13, padding: '16px 0 8px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
@@ -161,13 +169,14 @@ export default function InternDrawer({ intern, onClose }: InternDrawerProps) {
             </div>
           ))}
 
-          {/* ── Devam (son 7 kayıt) ── */}
+          {/* ── Devam (son 3 kayıt) — önceden backend'in döndürdüğü TÜM
+              geçmiş (30'a kadar) gösteriliyordu, zamanla liste çok uzuyordu. ── */}
           {attendance.length > 0 && (
             <>
               <div style={{ fontWeight: 700, fontSize: 13, padding: '16px 0 8px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                🕐 Devam Kaydı (son {attendance.length})
+                🕐 Devam Kaydı (son {Math.min(attendance.length, 3)})
               </div>
-              {attendance.map((a: any) => (
+              {attendance.slice(0, 3).map((a: any) => (
                 <div key={a.id} style={{ display: 'flex', gap: 8, padding: '5px 0', fontSize: 12, borderBottom: '1px solid #F1F5F9' }}>
                   <span style={{ fontWeight: 600, minWidth: 84 }}>{new Date(a.date).toLocaleDateString('tr-TR')}</span>
                   <span style={{ color: 'var(--text-secondary)' }}>

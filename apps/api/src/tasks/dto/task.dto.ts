@@ -35,9 +35,14 @@ export class CreateTaskDto {
   @IsDateString()
   dueDate: string;
 
+  // NOT: "Görev Aktar" ile bir Personel projesindeki/görevindeki alt
+  // görevler bu görevin ALT GÖREVLERİ olarak aktarıldığında, her birinin
+  // kaynak ID'si (sourcePersonnelTaskItemId) burada, subtasks dizisinin
+  // İÇİNDE taşınıyor — çünkü senkronizasyon TEK bir görev değil, HER BİR
+  // alt görev seviyesinde çalışıyor.
   @IsArray()
   @IsOptional()
-  subtasks?: { title: string; isCompleted?: boolean; orderIndex?: number }[];
+  subtasks?: { title: string; isCompleted?: boolean; orderIndex?: number; sourcePersonnelTaskItemId?: string }[];
 }
 
 export class UpdateTaskDto {

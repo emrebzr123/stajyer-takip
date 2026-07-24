@@ -21,4 +21,12 @@ export class SubTaskEntity {
 
   @Column({ type: 'int', default: 0 })
   orderIndex: number;
+
+  // "Görev Aktar" ile Personel panelindeki bir projeden/görevden bu alt
+  // görev de aktarıldıysa, kaynak PersonnelTaskItem'ın ID'sini tutar —
+  // stajyer bu alt görevi işaretlediğinde (ya da tersine, Personel/
+  // Yönetici kaynağı işaretlediğinde), ikisi çift yönlü senkron kalsın
+  // diye. Elle oluşturulan normal alt görevlerde boş kalır.
+  @Column({ name: 'source_personnel_task_item_id', nullable: true })
+  sourcePersonnelTaskItemId: string;
 }

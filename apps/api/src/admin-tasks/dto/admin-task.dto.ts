@@ -8,6 +8,10 @@ export class CreateBoardDto {
   @IsString()
   @IsOptional()
   color?: string;
+
+  @IsDateString()
+  @IsOptional()
+  dueDate?: string;
 }
 
 export class UpdateBoardDto {
@@ -23,6 +27,10 @@ export class UpdateBoardDto {
   @IsInt()
   @IsOptional()
   orderIndex?: number;
+
+  @IsDateString()
+  @IsOptional()
+  dueDate?: string;
 }
 
 export class CreateTaskItemDto {

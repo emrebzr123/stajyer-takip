@@ -18,12 +18,23 @@ export class AdminTasksService {
 
   // Sadece giriş yapan yöneticinin KENDİ bölümlerini (ve içindeki görevleri)
   // döner — başka bir yöneticinin panosu asla görünmez.
+  //
+  // NOT: Önceden burada relations:['tasks'] kullanılıyordu — bu, TASK'ların
+  // (ilişkili kayıtların) sırasını HİÇ belirtmiyordu. TypeORM/Postgres bu
+  // durumda kayıtları öngörülemez bir sırada döndürüyordu (veritabanının
+  // kendi iç sırasına bağlı), bu yüzden bir görev eklendiğinde/silindiğinde
+  // liste "rastgele" karışıyormuş gibi görünüyordu. QueryBuilder ile artık
+  // hem bölümler hem İÇİNDEKİ görevler AÇIKÇA sıralanıyor — en son eklenen
+  // görev en üstte.
   async findBoardsForOwner(ownerId: string) {
-    return this.boardsRepo.find({
-      where: { ownerId },
-      relations: ['tasks'],
-      order: { orderIndex: 'ASC', createdAt: 'ASC' },
-    });
+    return this.boardsRepo
+      .createQueryBuilder('board')
+      .leftJoinAndSelect('board.tasks', 'task')
+      .where('board.ownerId = :ownerId', { ownerId })
+      .orderBy('board.orderIndex', 'ASC')
+      .addOrderBy('board.createdAt', 'ASC')
+      .addOrderBy('task.createdAt', 'DESC')
+      .getMany();
   }
 
   async createBoard(ownerId: string, dto: CreateBoardDto) {
@@ -33,6 +44,7 @@ export class AdminTasksService {
       name: dto.name.trim(),
       color: dto.color || DEFAULT_COLORS[count % DEFAULT_COLORS.length],
       orderIndex: count,
+      dueDate: dto.dueDate || undefined,
     });
     return this.boardsRepo.save(board);
   }
@@ -53,6 +65,7 @@ export class AdminTasksService {
     if (dto.name !== undefined) board.name = dto.name.trim();
     if (dto.color !== undefined) board.color = dto.color;
     if (dto.orderIndex !== undefined) board.orderIndex = dto.orderIndex;
+    if (dto.dueDate !== undefined) board.dueDate = dto.dueDate;
     return this.boardsRepo.save(board);
   }
 

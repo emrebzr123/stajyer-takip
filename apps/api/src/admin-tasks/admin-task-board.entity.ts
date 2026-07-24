@@ -32,6 +32,12 @@ export class AdminTaskBoardEntity {
   @Column({ type: 'int', default: 0 })
   orderIndex: number;
 
+  // Bitiş tarihi — kullanıcı sadece bunu girer, başlangıç (oluşturulma)
+  // zaten createdAt ile otomatik. Yönetici'nin Görevler sayfasındaki
+  // (personnel-tasks) aynı özellikle tutarlı.
+  @Column({ type: 'date', nullable: true })
+  dueDate: string;
+
   @OneToMany(() => AdminTaskItemEntity, (t) => t.board, { cascade: true })
   tasks: AdminTaskItemEntity[];
 
